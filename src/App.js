@@ -13,8 +13,8 @@ function Rod() {
         <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} /> {/* left width, right width, lenght, how precise the curves are*/}
         <meshStandardMaterial color="red" />
       </mesh>
-      {/* Arrowhead on right */}
-      <mesh position={[0, -0.15, 0]} rotation={[0, 0, -Math.PI ]}>
+      {/* Arrowhead on left */}
+      <mesh position={[0, 0.15, 0]} rotation={[Math.PI, Math.PI, Math.PI]}> 
         <coneGeometry args={[0.015, 0.05, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
@@ -22,22 +22,26 @@ function Rod() {
   );
 }
 
-function BaseballModel({ rotation, spinRate, playing }) {
+function BaseballModel({ rotation, orientation, spinRate, playing }) {
   const gltf = useGLTF('/models/baseball.gltf');
   const groupRef = useRef();
 
   useFrame((state, delta) => {
     if (playing && groupRef.current) {
-      const radPerSec = (spinRate * 2 * Math.PI) / 60; // convert RPM to rad/s (fix this this is wrong fs)
-      groupRef.current.rotation.z += radPerSec * delta;
+      const radPerSec = (spinRate * 2 * Math.PI) / 60;
+      groupRef.current.rotation.z += radPerSec * delta * -1;
     }
   });
 
   return (
     <group rotation={[Math.PI / 2, 3 * Math.PI / 2, 0]}>
-      <group ref={groupRef} rotation={rotation}>
-        <primitive object={gltf.scene} scale={2} />
+      <group rotation={rotation}> {/* Gyro + Tilt */}
         <Rod />
+        <group ref={groupRef}> {/* Spin group — rotates around rod */}
+          <group rotation={orientation}> {/* Ball grip orientation */}
+            <primitive object={gltf.scene} scale={2} />
+          </group>
+        </group>
       </group>
     </group>
   );
@@ -45,15 +49,25 @@ function BaseballModel({ rotation, spinRate, playing }) {
 
 
 function App() {
+  const [orientX, setOrientX] = useState(0);
+  const [orientY, setOrientY] = useState(0);
+
   const [rotX, setRotX] = useState(0);
   const [rotY, setRotY] = useState(0);
-  const [rotZ, setRotZ] = useState(0);
+  const [rotZ, setRotZ] = useState(3);
+  
   const [playing, setPlaying] = useState(false);
+
+  const orientation = [
+    (orientX * Math.PI) / 180,
+    (orientY * Math.PI) / 180,
+    0,
+  ];
 
   const rotation = [
     -(rotX * Math.PI) / 180,
     -(rotY * Math.PI) / 180,
-    (rotZ * Math.PI) / 180,
+    0,
   ];
 
   return (
@@ -68,16 +82,16 @@ function App() {
         rotX={rotX} setRotX={setRotX}
         rotY={rotY} setRotY={setRotY}
         rotZ={rotZ} setRotZ={setRotZ}
+        orientX={orientX} setOrientX={setOrientX}
+        orientY={orientY} setOrientY={setOrientY}
         playing={playing} setPlaying={setPlaying}
       />
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
-        <BaseballModel rotation={rotation} spinRate={rotZ} playing={playing} />
+        <BaseballModel rotation={rotation} orientation={orientation} spinRate={rotZ} playing={playing} />
         <OrbitControls />
-        <axesHelper />
-
-
+        {/* <axesHelper /> */}
       </Canvas>
     </div>
   );
