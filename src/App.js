@@ -86,6 +86,47 @@ function App() {
         orientY={orientY} setOrientY={setOrientY}
         playing={playing} setPlaying={setPlaying}
       />
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none', // Allows interaction to pass through to canvas
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+      }}>
+        <svg
+          width="500"
+          height="500"
+          viewBox="-150 -150 300 300"
+        >
+          {/* Clock numbers */}
+          {[...Array(12)].map((_, i) => {
+            const angle = ((i + 1) / 12) * 2 * Math.PI;
+            const radius = 130;
+            const x = radius * Math.sin(angle);
+            const y = -radius * Math.cos(angle);
+            return (
+              <text
+                key={i}
+                x={x}
+                y={y}
+                textAnchor="middle"
+                alignmentBaseline="middle"
+                fontSize="16"
+                fill="black"
+              >
+                {i + 1}
+              </text>
+            );
+          })}
+          <circle cx="0" cy="-2" r="140" stroke="black" fill="none" strokeWidth="1.5" />
+        </svg>
+      </div>
+
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />

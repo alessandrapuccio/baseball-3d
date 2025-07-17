@@ -18,7 +18,7 @@ function axisToTiltTime(degrees) {
 // Tilt time string to spin axis deg
 function tiltTimeToAxisDeg(hours, minutes) {
   const value = ((hours % 12) || 12) + (minutes / 60); //  10:15 = 10.25 
-  const degrees = ((value + 6) % 12) * 30;    // the +6 offsets it the 90 from spin axis and %12 finds the hour (then multiplies by degrees to get the angle)
+  const degrees = ((value) % 12) * 30;    // the +6 offsets it the 90 from spin axis and %12 finds the hour (then multiplies by degrees to get the angle)
   return degrees;
 }
 
@@ -26,28 +26,6 @@ function tiltTimeToAxisDeg(hours, minutes) {
 
 export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, setRotZ, orientX, setOrientX, orientY, setOrientY, playing, setPlaying }) {
     const clamp = (value) => Math.max(0, Math.min(360, value));
-
-    // const [tiltTime, setTiltTime] = React.useState(axisToTiltTime(rotY));
-    // const [tiltHour, setTiltHour] = React.useState(axisToTiltTime(rotY).hours);
-    // const [tiltMinute, setTiltMinute] = React.useState(axisToTiltTime(rotY).minutes);
-
-    // Update tilt time when rotY changes
-    // React.useEffect(() => {
-    //     const { hours, minutes } = axisToTiltTime(rotY);
-    //     setTiltHour(hours);
-    //     setTiltMinute(minutes);
-    // }, [rotY]);
-
-  
-
-    // const [tiltHourInput, setTiltHourInput] = React.useState(tiltHour.toString());
-    // const [tiltMinuteInput, setTiltMinuteInput] = React.useState(tiltMinute.toString().padStart(2, '0'));
-
-    // {/* // Sync string inputs when tiltHour or tiltMinute change externally */}
-    // React.useEffect(() => {
-    //     setTiltHourInput(tiltHour.toString());
-    //     setTiltMinuteInput(tiltMinute.toString().padStart(2, '0'));
-    // }, [tiltHour, tiltMinute]);
 
 
     return (
@@ -161,8 +139,7 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
 
          
             {/* // Tilt Time Input */}
-            {/* Tilt Time Input using MUI */}
-            <h4 style={{ marginBottom: 8 }}>Tilt (Clock Entry)</h4>
+            <h4 style={{ marginBottom: 8 }}>Tilt</h4>
             <div style={{ marginBottom: 12, maxWidth: 200 }}>
             <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <TimePicker
