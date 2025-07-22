@@ -22,7 +22,7 @@ function Rod() {
   );
 }
 
-function BaseballModel({ rotation, orientation, spinRate, playing }) {
+function BaseballModel({ rotX, rotY, orientation, spinRate, playing }) {
   const gltf = useGLTF('/models/baseball.gltf');
   const groupRef = useRef();
 
@@ -32,19 +32,38 @@ function BaseballModel({ rotation, orientation, spinRate, playing }) {
       groupRef.current.rotation.z += radPerSec * delta * -1;
     }
   });
-
   return (
-    <group rotation={[Math.PI / 2, 3 * Math.PI / 2, 0]}>
-      <group rotation={rotation}> {/* Gyro + Tilt */}
-        <Rod />
-        <group ref={groupRef}> {/* Spin group — rotates around rod */}
-          <group rotation={orientation}> {/* Ball grip orientation */}
+  <group rotation={[Math.PI / 2, 3 * Math.PI / 2, 0]}>
+    {/* Applies ball grip orientation */}
+    <group rotation={orientation}>
+      {/*  TILT GROUP: Rotates about Y (Spin Axis)  */}
+      <group rotation={[0, -rotY * Math.PI / 180, 0]}>
+        {/*  GYRO GROUP: Rotates about (tilted) X (Perpendicular to Tilt) */}
+        <group rotation={[-rotX * Math.PI / 180, 0, 0]}>
+          {/* Rod along X */}
+          <Rod />
+          {/* SPIN GROUP: Rotates about local Z; animated */}
+          <group ref={groupRef}>
             <primitive object={gltf.scene} scale={2} />
           </group>
         </group>
       </group>
     </group>
-  );
+  </group>
+);
+
+  // return (
+  //   <group rotation={[Math.PI / 2, 3 * Math.PI / 2, 0]}>
+  //     <group rotation={rotation}> {/* Gyro + Tilt */}
+  //       <Rod />
+  //       <group ref={groupRef}> {/* Spin group — rotates around rod */}
+  //         <group rotation={orientation}> {/* Ball grip orientation */}
+  //           <primitive object={gltf.scene} scale={2} />
+  //         </group>
+  //       </group>
+  //     </group>
+  //   </group>
+  // );
 }
 
 
@@ -130,9 +149,17 @@ function App() {
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
-        <BaseballModel rotation={rotation} orientation={orientation} spinRate={rotZ} playing={playing} />
+        <BaseballModel
+          rotY={rotY}        // Y "tilt" axis (degrees)
+          rotX={rotX}        // X "gyro" axis (degrees)
+          orientation={orientation}
+          spinRate={rotZ}
+          playing={playing}
+        />
+
+        {/* <BaseballModel rotation={rotation} orientation={orientation} spinRate={rotZ} playing={playing} /> */}
         <OrbitControls />
-        {/* <axesHelper /> */}
+        <axesHelper />
       </Canvas>
     </div>
   );
