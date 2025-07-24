@@ -4,17 +4,19 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import RotationSliders from './components/RotationSliders';
 import PlayButton from './components/PlayButton';
+import * as THREE from "three";
 
 function Rod() {
   return (
-    <group rotation={[Math.PI / 2, 0, 0]}>
-      {/* Rod */}
-      <mesh>
-        <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} /> {/* left width, right width, lenght, how precise the curves are*/}
+    <group>
+      {/* Rod along X axis */}
+      <mesh rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
-      {/* Arrowhead on left */}
-      <mesh position={[0, 0.15, 0]} rotation={[Math.PI, Math.PI, Math.PI]}> 
+
+      {/* Arrowhead on left (negative X direction) */}
+      <mesh position={[-0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <coneGeometry args={[0.015, 0.05, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
@@ -22,58 +24,51 @@ function Rod() {
   );
 }
 
-function BaseballModel({ rotX, rotY, orientation, spinRate, playing }) {
+function BaseballModel({ rotX, rotZ, rotY, orientation, spinRate, playing }) {
   const gltf = useGLTF('/models/baseball.gltf');
-  const groupRef = useRef();
+  const spinGroupRef = useRef();
+
+  useEffect(() => {
+    if (gltf.scene) {
+      gltf.scene.rotation.set(Math.PI / 2, 3 * Math.PI / 2, 0);
+    }
+  }, [gltf]);
 
   useFrame((state, delta) => {
-    if (playing && groupRef.current) {
-      const radPerSec = (spinRate * 2 * Math.PI) / 60;
-      groupRef.current.rotation.z += radPerSec * delta * -1;
+    if (playing && spinGroupRef.current) {
+      const radPerSec = (-spinRate * 2 * Math.PI) / 60;
+      spinGroupRef.current.rotation.x += radPerSec * delta * -1;
     }
   });
+
   return (
-  <group rotation={[Math.PI / 2, 3 * Math.PI / 2, 0]}>
-    {/* Applies ball grip orientation */}
-    <group rotation={orientation}>
-      {/*  TILT GROUP: Rotates about Y (Spin Axis)  */}
-      <group rotation={[0, -rotY * Math.PI / 180, 0]}>
-        {/*  GYRO GROUP: Rotates about (tilted) X (Perpendicular to Tilt) */}
-        <group rotation={[-rotX * Math.PI / 180, 0, 0]}>
-          {/* Rod along X */}
+    <group>
+      {/* TILT GROUP: rotates around Z (Spin Axis) */}
+      <group rotation={[0, 0, -rotZ * Math.PI / 180]}>
+        {/* GYRO GROUP: rotates around Y (perpendicular to tilt) */}
+        <group rotation={[0, -rotY * Math.PI / 180, 0]}>
           <Rod />
-          {/* SPIN GROUP: Rotates about local Z; animated */}
-          <group ref={groupRef}>
-            <primitive object={gltf.scene} scale={2} />
+          {/* SPIN GROUP: spins about X */}
+          <group ref={spinGroupRef}>
+            {/* Orientation affects ONLY the ball model now */}
+            <group rotation={orientation}>
+              <primitive object={gltf.scene} scale={2} />
+            </group>
           </group>
         </group>
       </group>
     </group>
-  </group>
-);
+  );
 
-  // return (
-  //   <group rotation={[Math.PI / 2, 3 * Math.PI / 2, 0]}>
-  //     <group rotation={rotation}> {/* Gyro + Tilt */}
-  //       <Rod />
-  //       <group ref={groupRef}> {/* Spin group — rotates around rod */}
-  //         <group rotation={orientation}> {/* Ball grip orientation */}
-  //           <primitive object={gltf.scene} scale={2} />
-  //         </group>
-  //       </group>
-  //     </group>
-  //   </group>
-  // );
 }
-
 
 function App() {
   const [orientX, setOrientX] = useState(0);
   const [orientY, setOrientY] = useState(0);
 
-  const [rotX, setRotX] = useState(0);
+  const [rotX, setRotX] = useState(3);
   const [rotY, setRotY] = useState(0);
-  const [rotZ, setRotZ] = useState(3);
+  const [rotZ, setRotZ] = useState(0);
   
   const [playing, setPlaying] = useState(false);
 
@@ -150,10 +145,11 @@ function App() {
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
         <BaseballModel
+          rotZ={rotZ}
           rotY={rotY}        // Y "tilt" axis (degrees)
           rotX={rotX}        // X "gyro" axis (degrees)
           orientation={orientation}
-          spinRate={rotZ}
+          spinRate={rotX}
           playing={playing}
         />
 

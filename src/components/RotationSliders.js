@@ -89,34 +89,60 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
                 </label>
             </div>
 
-            {/* Gyro (X axis) */}
-            <h4 style={{ marginBottom: 8 }}>Spin Axis</h4>
+         
+            {/* // Tilt Time Input */}
+            <h4 style={{ marginBottom: 8 }}>Tilt (Adjust Before Gyro)</h4>
+            <div style={{ marginBottom: 12, maxWidth: 200 }}>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <TimePicker
+                ampm={false}
+                displayStaticWrapperAs="desktop"
+                views={['hours', 'minutes']}
+                minutesStep={1}
+                format="hh:mm"
+                value={dayjs().hour(axisToTiltTime(rotZ).hours).minute(axisToTiltTime(rotZ).minutes)}
+                onChange={(newValue) => {
+                    if (newValue) {
+                    const h = newValue.hour() % 12 || 12;
+                    const m = newValue.minute();
+                    const angle = tiltTimeToAxisDeg(h, m);
+                    setRotZ(angle);
+                    }
+                }}
+                />
+            </LocalizationProvider>
+            </div>
+
+            {/* Spin Axis (Y axis) */}
             <div style={{ marginBottom: 12 }}>
                 <label>
-                    Gyro:
+                    Spin Axis:
                     <input
                         type="range"
                         min={0}
                         max={360}
-                        value={rotX}
-                        onChange={e => setRotX(Number(e.target.value))}
+                        value={rotZ}
+                        onChange={e => setRotZ(Number(e.target.value))}
                         style={{ margin: '0 8px', verticalAlign: 'middle' }}
                     />
                     <input
                         type="number"
                         min={0}
                         max={360}
-                        value={rotX}
-                        onChange={e => setRotX(clamp(Number(e.target.value)))}
+                        value={rotZ}
+                        onChange={e => setRotZ(clamp(Number(e.target.value)))}
                         style={{ width: 60, marginRight: 4, verticalAlign: 'middle' }}
                     />
                     °
                 </label>
             </div>
-            {/* Spin Axis (Y axis) */}
+
+
+            {/* Gyro (X axis) */}
+            <h4 style={{ marginBottom: 8 }}>Spin Axis</h4>
             <div style={{ marginBottom: 12 }}>
                 <label>
-                    Spin Axis:
+                    Gyro:
                     <input
                         type="range"
                         min={0}
@@ -137,32 +163,6 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
                 </label>
             </div>
 
-         
-            {/* // Tilt Time Input */}
-            <h4 style={{ marginBottom: 8 }}>Tilt</h4>
-            <div style={{ marginBottom: 12, maxWidth: 200 }}>
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <TimePicker
-                ampm={false}
-                displayStaticWrapperAs="desktop"
-                views={['hours', 'minutes']}
-                minutesStep={1}
-                format="hh:mm"
-                value={dayjs().hour(axisToTiltTime(rotY).hours).minute(axisToTiltTime(rotY).minutes)}
-                onChange={(newValue) => {
-                    if (newValue) {
-                    const h = newValue.hour() % 12 || 12;
-                    const m = newValue.minute();
-                    const angle = tiltTimeToAxisDeg(h, m);
-                    setRotY(angle);
-                    }
-                }}
-                />
-            </LocalizationProvider>
-            </div>
-
-
-
 
             {/* Z Rotation (spinning action) */}
             <h4 style={{ marginBottom: 8 }}>Speed</h4>
@@ -174,16 +174,16 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
                         min={0}
                         max={3000}
                         step={10}
-                        value={rotZ}
-                        onChange={e => setRotZ(Number(e.target.value))}
+                        value={rotX}
+                        onChange={e => setRotX(Number(e.target.value))}
                         style={{ margin: '0 8px', verticalAlign: 'middle' }}
                     />
                     <input
                         type="number"
                         min={0}
                         max={3000}
-                        value={rotZ}
-                        onChange={e => setRotZ(Number(e.target.value))}
+                        value={rotX}
+                        onChange={e => setRotX(Number(e.target.value))}
                         style={{ width: 80, marginRight: 4, verticalAlign: 'middle' }}
                     />
                     RPM
