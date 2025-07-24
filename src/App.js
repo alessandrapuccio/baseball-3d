@@ -24,9 +24,13 @@ function Rod() {
   );
 }
 
-function BaseballModel({ rotX, rotZ, rotY, orientation, spinRate, playing }) {
+function BaseballModel({
+  rotX, rotZ, rotY, orientation, spinRate, playing,
+  seamOrientation, useSeamOrientation
+}) {
   const gltf = useGLTF('/models/baseball.gltf');
   const spinGroupRef = useRef();
+  const modelGroupRef = useRef();
 
   useEffect(() => {
     if (gltf.scene) {
@@ -34,6 +38,31 @@ function BaseballModel({ rotX, rotZ, rotY, orientation, spinRate, playing }) {
     }
   }, [gltf]);
 
+  // Apply seams (Hawk-Eye matrix → quaternion) OR user controls
+  useEffect(() => {
+    if (modelGroupRef.current) {
+      if (useSeamOrientation && seamOrientation) {
+        // Build Hawk-Eye Quaternion from matrix
+        const m4 = new THREE.Matrix4();
+        m4.set(
+          seamOrientation.xx, seamOrientation.xy, seamOrientation.xz, 0,
+          seamOrientation.yx, seamOrientation.yy, seamOrientation.yz, 0,
+          seamOrientation.zx, seamOrientation.zy, seamOrientation.zz, 0,
+          0, 0, 0, 1
+        );
+        const q = new THREE.Quaternion();
+        q.setFromRotationMatrix(m4);
+        modelGroupRef.current.quaternion.copy(q);
+      } else {
+        // Use user orientation controls: Euler angles (radians)
+        // Note: orientation = [x, y, z] in radians
+        modelGroupRef.current.rotation.set(...orientation);
+        modelGroupRef.current.quaternion.identity(); // Clear any previous quaternion
+      }
+    }
+  }, [useSeamOrientation, seamOrientation, orientation]);
+
+  // Spin logic stays the same
   useFrame((state, delta) => {
     if (playing && spinGroupRef.current) {
       const radPerSec = (-spinRate * 2 * Math.PI) / 60;
@@ -50,8 +79,8 @@ function BaseballModel({ rotX, rotZ, rotY, orientation, spinRate, playing }) {
           <Rod />
           {/* SPIN GROUP: spins about X */}
           <group ref={spinGroupRef}>
-            {/* Orientation affects ONLY the ball model now */}
-            <group rotation={orientation}>
+            {/* This group handles either orientation or seamOrientation */}
+            <group ref={modelGroupRef}>
               <primitive object={gltf.scene} scale={2} />
             </group>
           </group>
@@ -59,7 +88,6 @@ function BaseballModel({ rotX, rotZ, rotY, orientation, spinRate, playing }) {
       </group>
     </group>
   );
-
 }
 
 function App() {
@@ -69,7 +97,7 @@ function App() {
   const [rotX, setRotX] = useState(3);
   const [rotY, setRotY] = useState(0);
   const [rotZ, setRotZ] = useState(0);
-  
+
   const [playing, setPlaying] = useState(false);
 
   const orientation = [
@@ -84,6 +112,30 @@ function App() {
     0,
   ];
 
+  {/* SeamO True False */ }
+  const [useSeamOrientation, setUseSeamOrientation] = useState(false);
+  {/* SeamO Coordinates */ }
+  const [seamOrientation, setSeamOrientation] = useState(null);
+  useEffect(() => {
+    fetch("/gilbert_augEighth.json")
+      .then(res => res.json())
+      .then(data => {
+        const pitch = data[0];
+        const orientation = {
+          xx: pitch.seam_orientation_xx,
+          xy: pitch.seam_orientation_xy,
+          xz: pitch.seam_orientation_xz,
+          yx: pitch.seam_orientation_yx,
+          yy: pitch.seam_orientation_yy,
+          yz: pitch.seam_orientation_yz,
+          zx: pitch.seam_orientation_zx,
+          zy: pitch.seam_orientation_zy,
+          zz: pitch.seam_orientation_zz
+        };
+        setSeamOrientation(orientation);
+      });
+  }, []);
+
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
       <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 20 }}>
@@ -92,6 +144,25 @@ function App() {
           onClick={() => setPlaying(p => !p)}
         />
       </div>
+
+    {/* SeamO data button */}
+    <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 11 }}>
+      {/* SeamO data button */}
+      <button
+        style={{
+          marginBottom: 8,
+          padding: 8,
+          borderRadius: 6,
+          background: useSeamOrientation ? "#4caf50" : "#eee",
+          color: useSeamOrientation ? "#fff" : "#000",
+          fontFamily: 'sans-serif',
+        }}
+        onClick={() => setUseSeamOrientation(v => !v)}
+      >
+        {useSeamOrientation ? 'Using Hawk-Eye Pitch Orientation' : 'Using Manual Controls'}
+      </button>
+    </div>
+
       <RotationSliders // passing in the fucntions so that within the slider component the functions can be called w the info from the sliders. need access to them over there. i am not passing in values here.
         rotX={rotX} setRotX={setRotX}
         rotY={rotY} setRotY={setRotY}
@@ -112,53 +183,105 @@ function App() {
         alignItems: 'center',
         zIndex: 10,
       }}>
-        <svg
-          width="500"
-          height="500"
-          viewBox="-150 -150 300 300"
-        >
-          {/* Clock numbers */}
-          {[...Array(12)].map((_, i) => {
-            const angle = ((i + 1) / 12) * 2 * Math.PI;
-            const radius = 130;
-            const x = radius * Math.sin(angle);
-            const y = -radius * Math.cos(angle);
-            return (
-              <text
-                key={i}
-                x={x}
-                y={y}
-                textAnchor="middle"
-                alignmentBaseline="middle"
-                fontSize="16"
-                fill="black"
-              >
-                {i + 1}
-              </text>
-            );
-          })}
-          <circle cx="0" cy="-2" r="140" stroke="black" fill="none" strokeWidth="1.5" />
-        </svg>
+
       </div>
 
-      <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
-        <ambientLight intensity={1} />
-        <directionalLight position={[0, 0, 0.3]} intensity={1} />
-        <BaseballModel
-          rotZ={rotZ}
-          rotY={rotY}        // Y "tilt" axis (degrees)
-          rotX={rotX}        // X "gyro" axis (degrees)
-          orientation={orientation}
-          spinRate={rotX}
-          playing={playing}
-        />
+        <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
+          <ambientLight intensity={1} />
+          <directionalLight position={[0, 0, 0.3]} intensity={1} />
+          <BaseballModel
+            rotZ={rotZ}
+            rotY={rotY}       
+            rotX={rotX}   // spin action     
+            orientation={orientation}
+            spinRate={rotX}
+            playing={playing}
+            seamOrientation={seamOrientation}
+            useSeamOrientation={useSeamOrientation}
+          />
 
-        {/* <BaseballModel rotation={rotation} orientation={orientation} spinRate={rotZ} playing={playing} /> */}
-        <OrbitControls />
-        <axesHelper />
-      </Canvas>
-    </div>
-  );
-}
+          {/* <BaseballModel rotation={rotation} orientation={orientation} spinRate={rotZ} playing={playing} /> */}
+          <OrbitControls />
+          <axesHelper />
+        </Canvas>
+      </div>
+    );
+  }
 
-export default App;
+  // return (
+  //   <div style={{ width: '100vw', height: '100vh' }}>
+  //     {/* Play button in top-right */}
+  //     <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 20 }}>
+  //       <PlayButton
+  //         playing={playing}
+  //         onClick={() => setPlaying(p => !p)}
+  //       />
+  //     </div>
+
+  //     {/* SeamO toggle button + sliders in top-left */}
+  //     <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}>
+  //       {/* SeamO data toggle button */}
+  //       <button
+  //         style={{
+  //           marginBottom: 8,
+  //           padding: 8,
+  //           borderRadius: 6,
+  //           background: useSeamOrientation ? "#4caf50" : "#eee",
+  //           color: useSeamOrientation ? "#fff" : "#000",
+  //           fontFamily: 'sans-serif',
+  //           fontSize: 14,
+  //           width: '100%',
+  //         }}
+  //         onClick={() => setUseSeamOrientation(v => !v)}
+  //       >
+  //         {useSeamOrientation ? 'Using Hawk-Eye Pitch Orientation' : 'Using Manual Controls'}
+  //       </button>
+
+  //       {/* Rotation sliders */}
+  //       <RotationSliders
+  //         rotX={rotX} setRotX={setRotX}
+  //         rotY={rotY} setRotY={setRotY}
+  //         rotZ={rotZ} setRotZ={setRotZ}
+  //         orientX={orientX} setOrientX={setOrientX}
+  //         orientY={orientY} setOrientY={setOrientY}
+  //         playing={playing} setPlaying={setPlaying}
+  //       />
+  //     </div>
+
+  //     {/* Transparent overlay (centered content if needed) */}
+  //     <div style={{
+  //       position: 'absolute',
+  //       top: 0,
+  //       left: 0,
+  //       width: '100%',
+  //       height: '100%',
+  //       pointerEvents: 'none',
+  //       display: 'flex',
+  //       justifyContent: 'center',
+  //       alignItems: 'center',
+  //       zIndex: 10,
+  //     }}>
+  //       {/* Add any centered UI here if needed */}
+  //     </div>
+
+  //     {/* 3D Canvas */}
+  //     <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
+  //       <ambientLight intensity={1} />
+  //       <directionalLight position={[0, 0, 0.3]} intensity={1} />
+  //       <BaseballModel
+  //         rotZ={rotZ}
+  //         rotY={rotY}
+  //         rotX={rotX}
+  //         orientation={orientation}
+  //         spinRate={rotX}
+  //         playing={playing}
+  //         seamOrientation={seamOrientation}
+  //         useSeamOrientation={useSeamOrientation}
+  //       />
+  //       <OrbitControls />
+  //       <axesHelper />
+  //     </Canvas>
+  //   </div>
+  // );}
+
+  export default App;

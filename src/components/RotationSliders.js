@@ -32,7 +32,7 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
 
         <div style={{
             position: 'absolute',
-            top: 20,
+            top: 80,
             left: 20,
             zIndex: 10,
             background: 'rgba(255,255,255,0.95)',
@@ -43,7 +43,7 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
         }}>
 
             {/* Orientation Sliders */}
-            <h4 style={{ marginBottom: 8 }}>Orientation</h4>
+            <h4 style={{ marginTop:0 }}>Orientation</h4>
             <div style={{ marginBottom: 12 }}>
                 <label>
                     X Axis:
