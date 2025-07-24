@@ -147,32 +147,6 @@ function App() {
   const seamOrientation = getSeamOrientationObj(selectedPitch);
 
 
-  //* SeamO Coordinates */ 
-  // const [seamOrientation, setSeamOrientation] = useState(null);
-
-  // useEffect(() => {
-  //   fetch("/gilbert_augEighth.json")
-  //     .then(res => res.json())
-  //     .then(data => {
-  //       const pitch = data[0];
-  //       const orientation = {
-  //         xx: pitch.seam_orientation_xx,
-  //         xy: pitch.seam_orientation_xy,
-  //         xz: pitch.seam_orientation_xz,
-  //         yx: pitch.seam_orientation_yx,
-  //         yy: pitch.seam_orientation_yy,
-  //         yz: pitch.seam_orientation_yz,
-  //         zx: pitch.seam_orientation_zx,
-  //         zy: pitch.seam_orientation_zy,
-  //         zz: pitch.seam_orientation_zz
-  //       };
-  //       setSeamOrientation(orientation);
-  //     });
-  // }, []);
-
-
-
-
 
 return (
     <div style={{ width: "100vw", height: "100vh" }}>
@@ -310,78 +284,4 @@ return (
 }
 
 export default App;
-
-
-
-  // return (
-  //   <div style={{ width: '100vw', height: '100vh' }}>
-  //     <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 20 }}>
-  //       <PlayButton
-  //         playing={playing}
-  //         onClick={() => setPlaying(p => !p)}
-  //       />
-  //     </div>
-
-  //   {/* SeamO data button */}
-  //   <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 11 }}>
-  //     {/* SeamO data button */}
-  //     <button
-  //       style={{
-  //         marginBottom: 8,
-  //         padding: 8,
-  //         borderRadius: 6,
-  //         background: useSeamOrientation ? "#4caf50" : "#eee",
-  //         color: useSeamOrientation ? "#fff" : "#000",
-  //         fontFamily: 'sans-serif',
-  //       }}
-  //       onClick={() => setUseSeamOrientation(v => !v)}
-  //     >
-  //       {useSeamOrientation ? 'Using Hawk-Eye Pitch Orientation' : 'Using Manual Controls'}
-  //     </button>
-  //   </div>
-
-  //     <RotationSliders // passing in the fucntions so that within the slider component the functions can be called w the info from the sliders. need access to them over there. i am not passing in values here.
-  //       rotX={rotX} setRotX={setRotX}
-  //       rotY={rotY} setRotY={setRotY}
-  //       rotZ={rotZ} setRotZ={setRotZ}
-  //       orientX={orientX} setOrientX={setOrientX}
-  //       orientY={orientY} setOrientY={setOrientY}
-  //       playing={playing} setPlaying={setPlaying}
-  //     />
-  //     <div style={{
-  //       position: 'absolute',
-  //       top: 0,
-  //       left: 0,
-  //       width: '100%',
-  //       height: '100%',
-  //       pointerEvents: 'none', // Allows interaction to pass through to canvas
-  //       display: 'flex',
-  //       justifyContent: 'center',
-  //       alignItems: 'center',
-  //       zIndex: 10,
-  //     }}>
-
-  //     </div>
-
-  //       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
-  //         <ambientLight intensity={1} />
-  //         <directionalLight position={[0, 0, 0.3]} intensity={1} />
-  //         <BaseballModel
-  //           rotZ={rotZ}
-  //           rotY={rotY}       
-  //           rotX={rotX}   // spin action     
-  //           orientation={orientation}
-  //           spinRate={rotX}
-  //           playing={playing}
-  //           seamOrientation={seamOrientation}
-  //           useSeamOrientation={useSeamOrientation}
-  //         />
-
-  //         {/* <BaseballModel rotation={rotation} orientation={orientation} spinRate={rotZ} playing={playing} /> */}
-  //         <OrbitControls />
-  //         <axesHelper />
-  //       </Canvas>
-  //     </div>
-  //   );
-  // }
 
