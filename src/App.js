@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import PlayButton from "./components/PlayButton";
 import * as THREE from "three";
+import SpinAxisSliders from "./components/SpinAxisSliders";
+import PitchInfoPanels from "./components/PitchInfoPanels";
 
 function Rod() {
   return (
@@ -23,13 +25,7 @@ function Rod() {
   );
 }
 
-function BaseballModel({
-  spinRate, // spin rpm
-  playing,
-  seamOrientation,
-  useSeamOrientation,
-  spinAxis,
-}) {
+function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spinAxis}) {
   const gltf = useGLTF("/models/baseball.gltf");
   const spinGroupRef = useRef();
   const modelGroupRef = useRef();
@@ -127,7 +123,14 @@ function App() {
 
   const selectedPitch = pitches[selectedPitchIdx] || null;
 
-  // Helper to extract seam orientation matrix
+  useEffect(() => {
+    if (selectedPitch) {
+      console.log("Pitch keys:", Object.keys(selectedPitch));
+      console.log("PitchUID value:", selectedPitch.PitchUID);
+    }
+  }, [selectedPitch]);
+  
+  // helper to get seam orientation matrix
   function getSeamOrientationObj(pitch) {
     if (!pitch) return null;
     return {
@@ -145,13 +148,21 @@ function App() {
 
   const seamOrientation = getSeamOrientationObj(selectedPitch);
 
-  // Spin axis vector for spin and rod orientation
-  const spinAxisVector = selectedPitch
-    ? new THREE.Vector3(-selectedPitch.spin_x, selectedPitch.spin_z, selectedPitch.spin_y).normalize()
-    : new THREE.Vector3(1, 0, 0); // fallback X axis
+  /// user adjust attempt
+  const [userSpinAxis, setUserSpinAxis] = useState(null);
+  /// spin axis with user adjust attempt
+  const spinAxisVector = useMemo(() => {
+    if (userSpinAxis) return userSpinAxis;
+    if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
 
-  // Spin rate (RPM) from rotX state or any default RPM; here just a constant or you can add control later
-  const spinRateRPM = 50; // example fixed spin rate
+    return new THREE.Vector3(
+      -selectedPitch.spin_x,
+      selectedPitch.spin_z,
+      selectedPitch.spin_y
+    ).normalize();
+  }, [selectedPitch, userSpinAxis]);
+
+  const spinRateRPM = 50; 
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -182,6 +193,23 @@ function App() {
           </select>
         )}
       </div>
+      
+      <SpinAxisSliders
+        initialSpinAxis={
+          selectedPitch
+            ? new THREE.Vector3(
+                -selectedPitch.spin_x,
+                selectedPitch.spin_z,
+                selectedPitch.spin_y
+              ).normalize()
+            : new THREE.Vector3(1, 0, 0)
+        }
+        pitchKey={selectedPitch.PitchUID}
+        onSpinAxisChange={setUserSpinAxis}
+      />
+      
+      {/* Panels that display the pitch info for slsected pitch and adjusted pitch  */}
+      <PitchInfoPanels selectedPitch={selectedPitch} userSpinAxis={userSpinAxis} />
 
       {/* 3D Canvas */}
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
@@ -195,64 +223,10 @@ function App() {
           spinAxis={spinAxisVector}
         />
         <OrbitControls />
-        <axesHelper />
+        {/* <axesHelper /> */}
       </Canvas>
 
-      {/* Bottom-right info panel */}
-      {selectedPitch && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 20,
-            right: 20,
-            background: "rgba(255,255,255,0.96)",
-            padding: 18,
-            borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.09)",
-            fontFamily: "monospace",
-            fontSize: 14,
-            zIndex: 99,
-            minWidth: 360,
-            whiteSpace: "pre-wrap",
-            lineHeight: 1.5,
-            textAlign: "left",
-          }}
-        >
-          <b>Pitch Number:</b> {selectedPitch.PitchNumber}
-          <br />
-          <b>Pitch Type:</b> {selectedPitch.PitchType}
-          <br />
-          <b>Pitch Group:</b> {selectedPitch.PitchGroup}
-          <br />
-          <b>Spin Axis Angle (deg):</b> {selectedPitch.spinaxis_meas ?? "n/a"}
-          <br />
-          <b>Spin Vector:</b>{" "}
-          {`x: ${selectedPitch.spin_x?.toFixed(4) ?? "n/a"}, y: ${
-            selectedPitch.spin_y?.toFixed(4) ?? "n/a"
-          }, z: ${selectedPitch.spin_z?.toFixed(4) ?? "n/a"}`}
-          <br />
-          <b>Seam Orientation Matrix:</b>
-          <br />
-          {[
-            "seam_orientation_xx",
-            "seam_orientation_xy",
-            "seam_orientation_xz",
-            "seam_orientation_yx",
-            "seam_orientation_yy",
-            "seam_orientation_yz",
-            "seam_orientation_zx",
-            "seam_orientation_zy",
-            "seam_orientation_zz",
-          ].map((key) => (
-            <div key={key}>
-              {key}:{" "}
-              {selectedPitch[key] !== undefined
-                ? Number(selectedPitch[key]).toFixed(5)
-                : "n/a"}
-            </div>
-          ))}
-        </div>
-      )}
+      
     </div>
   );
 }
