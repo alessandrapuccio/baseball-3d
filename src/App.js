@@ -1,9 +1,7 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, useGLTF } from '@react-three/drei';
-import RotationSliders from './components/RotationSliders';
-import PlayButton from './components/PlayButton';
+import React, { useState, useRef, useEffect } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, useGLTF } from "@react-three/drei";
+import PlayButton from "./components/PlayButton";
 import * as THREE from "three";
 
 function Rod() {
@@ -15,74 +13,99 @@ function Rod() {
         <meshStandardMaterial color="red" />
       </mesh>
 
-      {/* Arrowhead on left (negative X direction) */}
-      <mesh position={[-0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+      {/* Arrowhead on right (positive X direction) */}
+      <mesh position={[0.15, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
         <coneGeometry args={[0.015, 0.05, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
     </group>
+
   );
 }
 
 function BaseballModel({
-  rotX, rotZ, rotY, orientation, spinRate, playing,
-  seamOrientation, useSeamOrientation
+  spinRate, // spin rpm
+  playing,
+  seamOrientation,
+  useSeamOrientation,
+  spinAxis,
 }) {
-  const gltf = useGLTF('/models/baseball.gltf');
+  const gltf = useGLTF("/models/baseball.gltf");
   const spinGroupRef = useRef();
   const modelGroupRef = useRef();
+  const rodGroupRef = useRef();
 
   useEffect(() => {
     if (gltf.scene) {
-      gltf.scene.rotation.set(Math.PI / 2, 3 * Math.PI / 2, 0);
+      // Align model correctly on load (kept from your original)
+      gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
     }
   }, [gltf]);
 
-  // Apply seams (Hawk-Eye matrix → quaternion) OR user controls
+  // Apply ball orientation from seamOrientation quaternion if enabled
   useEffect(() => {
     if (modelGroupRef.current) {
       if (useSeamOrientation && seamOrientation) {
-        // Build Hawk-Eye Quaternion from matrix
         const m4 = new THREE.Matrix4();
         m4.set(
-          seamOrientation.xx, seamOrientation.xy, seamOrientation.xz, 0,
-          seamOrientation.yx, seamOrientation.yy, seamOrientation.yz, 0,
-          seamOrientation.zx, seamOrientation.zy, seamOrientation.zz, 0,
+          seamOrientation.xx, -seamOrientation.yx, -seamOrientation.zx, 0,
+          seamOrientation.xy, -seamOrientation.yy, -seamOrientation.zy, 0,
+          seamOrientation.xz, -seamOrientation.yz, -seamOrientation.zz, 0,
           0, 0, 0, 1
         );
+
         const q = new THREE.Quaternion();
         q.setFromRotationMatrix(m4);
         modelGroupRef.current.quaternion.copy(q);
       } else {
-        // Use user orientation controls: Euler angles (radians)
-        // Note: orientation = [x, y, z] in radians
-        modelGroupRef.current.rotation.set(...orientation);
-        modelGroupRef.current.quaternion.identity(); // Clear any previous quaternion
+        // If not using seam orientation, reset rotation
+        modelGroupRef.current.quaternion.identity();
+        modelGroupRef.current.rotation.set(0, 0, 0);
       }
     }
-  }, [useSeamOrientation, seamOrientation, orientation]);
+  }, [useSeamOrientation, seamOrientation]);
 
-  // Spin logic stays the same
-  useFrame((state, delta) => {
-    if (playing && spinGroupRef.current) {
-      const radPerSec = (-spinRate * 2 * Math.PI) / 60;
-      spinGroupRef.current.rotation.x += radPerSec * delta * -1;
+  // Align rod with spinAxis when using seamOrientation
+  useEffect(() => {
+    if (rodGroupRef.current) {
+      if (useSeamOrientation && spinAxis) {
+        const defaultAxis = new THREE.Vector3(1, 0, 0); // rod default along +X
+        const q = new THREE.Quaternion().setFromUnitVectors(
+          defaultAxis,
+          spinAxis.clone().normalize()
+        );
+        rodGroupRef.current.quaternion.copy(q);
+      } else {
+        // Reset rod orientation if not using seamOrientation
+        rodGroupRef.current.quaternion.identity();
+      }
     }
-  });
+  }, [spinAxis, useSeamOrientation]);
+
+  // Spin animation around spinAxis
+useFrame((state, delta) => {
+  if (playing && spinGroupRef.current) {
+    const radPerSec = (spinRate * 2 * Math.PI) / 60;
+    const angle = radPerSec * delta;
+
+    // Always spin around the local X axis (which matches rod's orientation)
+    const localX = new THREE.Vector3(1, 0, 0);
+    const qSpin = new THREE.Quaternion();
+    qSpin.setFromAxisAngle(localX, angle);
+
+    // Apply spin relative to rodGroup's current rotation
+    spinGroupRef.current.quaternion.multiplyQuaternions(qSpin, spinGroupRef.current.quaternion);
+    }
+});
+
 
   return (
     <group>
-      {/* TILT GROUP: rotates around Z (Spin Axis) */}
-      <group rotation={[0, 0, -rotZ * Math.PI / 180]}>
-        {/* GYRO GROUP: rotates around Y (perpendicular to tilt) */}
-        <group rotation={[0, -rotY * Math.PI / 180, 0]}>
-          <Rod />
-          {/* SPIN GROUP: spins about X */}
-          <group ref={spinGroupRef}>
-            {/* This group handles either orientation or seamOrientation */}
-            <group ref={modelGroupRef}>
-              <primitive object={gltf.scene} scale={2} />
-            </group>
+      <group ref={rodGroupRef}>
+        <Rod />
+        <group ref={spinGroupRef}>
+          <group ref={modelGroupRef}>
+            <primitive object={gltf.scene} scale={2} />
           </group>
         </group>
       </group>
@@ -91,42 +114,20 @@ function BaseballModel({
 }
 
 function App() {
-  const [orientX, setOrientX] = useState(0);
-  const [orientY, setOrientY] = useState(0);
-
-  const [rotX, setRotX] = useState(3);
-  const [rotY, setRotY] = useState(0);
-  const [rotZ, setRotZ] = useState(0);
-
+  const [pitches, setPitches] = useState([]);
+  const [selectedPitchIdx, setSelectedPitchIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  const orientation = [
-    (orientX * Math.PI) / 180,
-    (orientY * Math.PI) / 180,
-    0,
-  ];
-
-  const rotation = [
-    -(rotX * Math.PI) / 180,
-    -(rotY * Math.PI) / 180,
-    0,
-  ];
-
-  //* Pitch data if they choose to pull it in */ 
-  const [pitches, setPitches] = useState([]);
-  const [selectedPitchIdx, setSelectedPitchIdx] = useState(0); // index in pitches array
-
-  //* SeamO True False */ 
-  const [useSeamOrientation, setUseSeamOrientation] = useState(false);
-  
-  //* Load all pitch data once at startup */
+  // Load pitch data on mount
   useEffect(() => {
     fetch("/gilbert_augEighth.json")
       .then((res) => res.json())
       .then((data) => setPitches(data || []));
   }, []);
 
-  //* Fn to get SeamO Coordinates from selected pitch 
+  const selectedPitch = pitches[selectedPitchIdx] || null;
+
+  // Helper to extract seam orientation matrix
   function getSeamOrientationObj(pitch) {
     if (!pitch) return null;
     return {
@@ -142,35 +143,36 @@ function App() {
     };
   }
 
-  //* Which pitch do we show? (null if list not available yet) */
-  const selectedPitch = pitches[selectedPitchIdx] || null;
   const seamOrientation = getSeamOrientationObj(selectedPitch);
 
+  // Spin axis vector for spin and rod orientation
+  const spinAxisVector = selectedPitch
+    ? new THREE.Vector3(-selectedPitch.spin_x, selectedPitch.spin_z, selectedPitch.spin_y).normalize()
+    : new THREE.Vector3(1, 0, 0); // fallback X axis
 
+  // Spin rate (RPM) from rotX state or any default RPM; here just a constant or you can add control later
+  const spinRateRPM = 50; // example fixed spin rate
 
-return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      {/* Play/Pause button */}
+  return (
+    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
+      {/* Play/Pause */}
       <div style={{ position: "absolute", top: 20, right: 20, zIndex: 20 }}>
         <PlayButton playing={playing} onClick={() => setPlaying((p) => !p)} />
       </div>
 
-      {/* -- PITCH DROPDOWN and Toggle -- */}
-      <div style={{ position: "absolute", top: 20, left: 20, zIndex: 11 }}>
-        {/* Dropdown: choose pitch */}
+      {/* Pitch selector */}
+      <div style={{ position: "absolute", top: 20, left: 20, zIndex: 20 }}>
         {pitches.length > 0 && (
           <select
             value={selectedPitchIdx}
             onChange={(e) => setSelectedPitchIdx(Number(e.target.value))}
             style={{
-              marginBottom: 8,
               padding: 8,
               borderRadius: 6,
               fontFamily: "sans-serif",
               fontSize: 16,
-              marginRight: 8,
+              minWidth: 300,
             }}
-            disabled={!useSeamOrientation}
           >
             {pitches.map((pitch, idx) => (
               <option key={idx} value={idx}>
@@ -179,58 +181,25 @@ return (
             ))}
           </select>
         )}
-        {/* Toggle: show with pitch data or manual controls */}
-        <button
-          style={{
-            marginBottom: 8,
-            padding: 8,
-            borderRadius: 6,
-            background: useSeamOrientation ? "#4caf50" : "#eee",
-            color: useSeamOrientation ? "#fff" : "#000",
-            fontFamily: "sans-serif",
-          }}
-          onClick={() => setUseSeamOrientation((v) => !v)}
-        >
-          {useSeamOrientation ? "Using Hawk-Eye Pitch Orientation" : "Using Manual Controls"}
-        </button>
       </div>
 
-      {/* Sliders */}
-      <RotationSliders
-        rotX={rotX}
-        setRotX={setRotX}
-        rotY={rotY}
-        setRotY={setRotY}
-        rotZ={rotZ}
-        setRotZ={setRotZ}
-        orientX={orientX}
-        setOrientX={setOrientX}
-        orientY={orientY}
-        setOrientY={setOrientY}
-        playing={playing}
-        setPlaying={setPlaying}
-      />
-
-      {/* CANVAS */}
+      {/* 3D Canvas */}
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
         <BaseballModel
-          rotZ={rotZ}
-          rotY={rotY}
-          rotX={rotX}
-          orientation={orientation}
-          spinRate={rotX}
+          spinRate={spinRateRPM}
           playing={playing}
           seamOrientation={seamOrientation}
-          useSeamOrientation={useSeamOrientation}
+          useSeamOrientation={true}
+          spinAxis={spinAxisVector}
         />
         <OrbitControls />
         <axesHelper />
       </Canvas>
 
-      {/* -- BOTTOM RIGHT INFO PANEL -- */}
-      {useSeamOrientation && selectedPitch && (
+      {/* Bottom-right info panel */}
+      {selectedPitch && (
         <div
           style={{
             position: "absolute",
@@ -243,8 +212,8 @@ return (
             fontFamily: "monospace",
             fontSize: 14,
             zIndex: 99,
-            minWidth: 340,
-            whiteSpace: "pre",
+            minWidth: 360,
+            whiteSpace: "pre-wrap",
             lineHeight: 1.5,
             textAlign: "left",
           }}
@@ -254,6 +223,13 @@ return (
           <b>Pitch Type:</b> {selectedPitch.PitchType}
           <br />
           <b>Pitch Group:</b> {selectedPitch.PitchGroup}
+          <br />
+          <b>Spin Axis Angle (deg):</b> {selectedPitch.spinaxis_meas ?? "n/a"}
+          <br />
+          <b>Spin Vector:</b>{" "}
+          {`x: ${selectedPitch.spin_x?.toFixed(4) ?? "n/a"}, y: ${
+            selectedPitch.spin_y?.toFixed(4) ?? "n/a"
+          }, z: ${selectedPitch.spin_z?.toFixed(4) ?? "n/a"}`}
           <br />
           <b>Seam Orientation Matrix:</b>
           <br />
@@ -267,16 +243,14 @@ return (
             "seam_orientation_zx",
             "seam_orientation_zy",
             "seam_orientation_zz",
-          ]
-            .map(
-              (key) =>
-                `${key}: ${
-                  selectedPitch[key] !== undefined
-                    ? Number(selectedPitch[key]).toFixed(5)
-                    : "n/a"
-                }`
-            )
-            .join("\n")}
+          ].map((key) => (
+            <div key={key}>
+              {key}:{" "}
+              {selectedPitch[key] !== undefined
+                ? Number(selectedPitch[key]).toFixed(5)
+                : "n/a"}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -284,4 +258,3 @@ return (
 }
 
 export default App;
-
