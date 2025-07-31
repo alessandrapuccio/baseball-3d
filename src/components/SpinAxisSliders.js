@@ -84,56 +84,90 @@ export default function SpinAxisSliders({ initialSpinAxis, pitchKey, onSpinAxisC
     }
   };
 
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 100,
-        left: 20,
-        zIndex: 20,
-        background: "rgba(255,255,255,0.96)",
-        padding: 16,
-        borderRadius: 8,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        fontFamily: "sans-serif",
-        width: 300,
-      }}
-    >
-      <h4>Tilt (Clock Face)</h4>
+ return (
+  <div
+    style={{
+      position: "absolute",
+      top: 145,
+      left: 20,
+      zIndex: 20,
+      background: "rgba(255,255,255,0.96)",
+      padding: 12,
+      borderRadius: 6,
+      boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+      fontFamily: "sans-serif",
+      width: 260,
+      fontSize: 14,
+    }}
+  >
+    <h4 style={{ margin: "4px 0 8px" }}>Tilt (Clock Face)</h4>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <input
         type="range"
         min={0}
         max={360}
         value={tiltDeg}
         onChange={(e) => handleTiltChange(Number(e.target.value))}
-        style={{ width: "100%" }}
+        style={{ flex: 1 }}
       />
-      <div>{tiltDeg.toFixed(1)}°</div>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <input
+          type="number"
+          min={0}
+          max={360}
+          value={tiltDeg}
+          onChange={(e) => handleTiltChange(Number(e.target.value))}
+          style={{
+            width: 60,
+            padding: 2,
+            fontSize: 13,
+          }}
+        />
+        <span style={{ marginLeft: 2 }}>°</span>
+      </div>
+    </div>
 
-      <h4 style={{ marginTop: 20 }}>Gyro</h4>
+    <h4 style={{ margin: "12px 0 8px" }}>Gyro</h4>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <input
         type="range"
         min={0}
         max={360}
         value={gyroDeg}
         onChange={(e) => handleGyroChange(Number(e.target.value))}
-        style={{ width: "100%" }}
+        style={{ flex: 1 }}
       />
-      <div>{gyroDeg.toFixed(1)}°</div>
-
-      <button
-        onClick={handleReset}
-        style={{
-          marginTop: 20,
-          padding: "6px 12px",
-          borderRadius: 4,
-          border: "1px solid #ccc",
-          background: "#f5f5f5",
-          cursor: "pointer",
-        }}
-      >
-        Reset to Pitch
-      </button>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <input
+          type="number"
+          min={0}
+          max={360}
+          value={gyroDeg}
+          onChange={(e) => handleGyroChange(Number(e.target.value))}
+          style={{
+            width: 60,
+            padding: 2,
+            fontSize: 13,
+          }}
+        />
+        <span style={{ marginLeft: 2 }}>°</span>
+      </div>
     </div>
-  );
+
+    <button
+      onClick={handleReset}
+      style={{
+        marginTop: 16,
+        padding: "5px 10px",
+        borderRadius: 4,
+        border: "1px solid #ccc",
+        background: "#f5f5f5",
+        cursor: "pointer",
+        fontSize: 13,
+      }}
+    >
+      Reset Spin Axis
+    </button>
+  </div>
+);
 }

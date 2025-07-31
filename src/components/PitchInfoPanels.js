@@ -1,6 +1,8 @@
 import React from "react";
 
-const PitchInfoPanels = ({ selectedPitch, userSpinAxis }) => {
+const PitchInfoPanels = ({ selectedPitch, userSpinAxis, adjustedSeamMatrix }) => {
+  console.log("Adjusted seam matrix in panel", adjustedSeamMatrix);
+
   if (!selectedPitch) return null;
 
   const seamKeys = [
@@ -17,9 +19,7 @@ const PitchInfoPanels = ({ selectedPitch, userSpinAxis }) => {
 
   const formattedSeamMatrix = seamKeys
     .map((key) =>
-      selectedPitch[key] !== undefined
-        ? Number(selectedPitch[key]).toFixed(5)
-        : "n/a"
+      selectedPitch[key] !== undefined ? Number(selectedPitch[key]).toFixed(5) : "n/a"
     )
     .join(", ");
 
@@ -38,21 +38,19 @@ const PitchInfoPanels = ({ selectedPitch, userSpinAxis }) => {
           fontFamily: "monospace",
           fontSize: 14,
           zIndex: 99,
-          minWidth: 360,
+          minWidth: 300,
           whiteSpace: "pre-wrap",
           lineHeight: 1.5,
           textAlign: "left",
         }}
       >
-        <div style={{ fontSize: 16, fontWeight: "bold" }}>Original Pitch Data:</div>
-        <b>Pitch Number:</b> {selectedPitch.PitchNumber}
-        <br />
+        <div style={{ fontSize: 16, fontWeight: "bold" }}>Original Pitch Data:</div> 
+        {/* <b>Pitch Number:</b> {selectedPitch.PitchNumber}
+        <br /> */}
         <b>Pitch Type:</b> {selectedPitch.PitchType}
         <br />
-        <b>Pitch Group:</b> {selectedPitch.PitchGroup}
-        <br />
-        <b>Pitch ID:</b> {selectedPitch.PitchUID}
-        <br />
+        {/* <b>Pitch ID:</b> {selectedPitch.PitchUID}
+        <br /> */}
         <b>Spin Vector:</b>{" "}
         {`x: ${selectedPitch.spin_x?.toFixed(4) ?? "n/a"}, y: ${
           selectedPitch.spin_y?.toFixed(4) ?? "n/a"
@@ -70,7 +68,7 @@ const PitchInfoPanels = ({ selectedPitch, userSpinAxis }) => {
         style={{
           position: "absolute",
           bottom: 20,
-          left: 720, // Positioned next to original panel
+          left: 720, //  next to original panel
           background: "rgba(245,245,245,0.96)",
           padding: 18,
           borderRadius: 8,
@@ -86,9 +84,26 @@ const PitchInfoPanels = ({ selectedPitch, userSpinAxis }) => {
       >
         <div style={{ fontSize: 16, fontWeight: "bold" }}>Adjusted Pitch Data:</div>
         <b>Adjusted Spin Axis:</b>
-        <br />
-        x: {userSpinAxis?.x.toFixed(3)}, y: {userSpinAxis?.y.toFixed(3)}, z:{" "}
-        {userSpinAxis?.z.toFixed(3)}
+        <br/>
+        x: {userSpinAxis?.x.toFixed(3)}, y: {userSpinAxis?.y.toFixed(3)}, z: {userSpinAxis?.z.toFixed(3)}
+        <br/>
+        <b>Adjusted Seam Orientation Matrix (xx, xy, xz, yx, yy, yz, zx, zy, zz):</b><br />
+        {adjustedSeamMatrix
+          ? [
+              adjustedSeamMatrix.seam_orientation_xx,
+              adjustedSeamMatrix.seam_orientation_xy,
+              adjustedSeamMatrix.seam_orientation_xz,
+              adjustedSeamMatrix.seam_orientation_yx,
+              adjustedSeamMatrix.seam_orientation_yy,
+              adjustedSeamMatrix.seam_orientation_yz,
+              adjustedSeamMatrix.seam_orientation_zx,
+              adjustedSeamMatrix.seam_orientation_zy,
+              adjustedSeamMatrix.seam_orientation_zz,
+            ]
+              .map((v) => Number(v).toFixed(5))
+              .join(", ")
+          : "n/a"
+        }        
       </div>
     </>
   );
