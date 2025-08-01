@@ -8,6 +8,20 @@ import PitchInfoPanels from "./components/PitchInfoPanels";
 import BallOrientationSliders from "./components/BallOrientationSliders";
 
 
+// If propValue is undefined, use local state; if propValue is set, always use it (true controlled pattern)
+function useHybridState(propValue, setPropValue, defaultValue) {
+  const [state, setState] = useState(defaultValue);
+  // Keep local state in sync if parent changes the prop
+  useEffect(() => {
+    if (propValue !== undefined) setState(propValue);
+  }, [propValue]);
+  // Use prop setter if provided, else local setState
+  const set = setPropValue || setState;
+  // Always return the actual current value (props win if supplied)
+  return [propValue !== undefined ? propValue : state, set];
+}
+
+
 function Rod() {
   return (
     <group>
@@ -112,6 +126,7 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
 }
 
 function convertMatrix4ToSeamOrientation(matrix4) {
+
   const e = matrix4.elements; // column order: e[0], e[4], e[8] are first row elements
   
   return {
@@ -129,88 +144,114 @@ function convertMatrix4ToSeamOrientation(matrix4) {
   };
 }
 
+function pitchSeamToMatrix4(seam) {
+  if (!seam) return new THREE.Matrix4();
+  const elements = [
+    seam.xx, seam.xy, seam.xz, 0,
+    seam.yx, seam.yy, seam.yz, 0,
+    seam.zx, seam.zy, seam.zz, 0,
+    0,      0,      0,     1
+  ];
+  const m = new THREE.Matrix4();
+  m.set(...elements);
+  return m;
+}
 
-function App() {
+function getSeamOrientationObj(pitch) {
+  if (!pitch) return null;
+  return {
+    xx: pitch.seam_orientation_xx,
+    xy: pitch.seam_orientation_xy,
+    xz: pitch.seam_orientation_xz,
+    yx: pitch.seam_orientation_yx,
+    yy: pitch.seam_orientation_yy,
+    yz: pitch.seam_orientation_yz,
+    zx: pitch.seam_orientation_zx,
+    zy: pitch.seam_orientation_zy,
+    zz: pitch.seam_orientation_zz,
+  };
+}
+
+
+
+// export default App;
+function App(props) {
+  // --- 1. Data loading (always fetch from JSON, as per your requirement)
   const [pitches, setPitches] = useState([]);
-  const [selectedPitchIdx, setSelectedPitchIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
-
-  // Load pitch data
   useEffect(() => {
-    fetch("/gilbert_augEighth.json").then((res) => res.json()).then((data) => setPitches(data || []));
+    fetch("/gilbert_augEighth.json")
+      .then(res => res.json())
+      .then(data => setPitches(data || []));
   }, []);
 
-  const selectedPitch = pitches[selectedPitchIdx] || null;
-  
-  // helper to get seam orientation matrix
-  function getSeamOrientationObj(pitch) {
-    if (!pitch) return null;
-    return {
-      xx: pitch.seam_orientation_xx,
-      xy: pitch.seam_orientation_xy,
-      xz: pitch.seam_orientation_xz,
-      yx: pitch.seam_orientation_yx,
-      yy: pitch.seam_orientation_yy,
-      yz: pitch.seam_orientation_yz,
-      zx: pitch.seam_orientation_zx,
-      zy: pitch.seam_orientation_zy,
-      zz: pitch.seam_orientation_zz,
-    };
-  }
+  // --- 2. Hybrid state for each top-level input
+  // selected pitch index
+  const [selectedPitchIdx, setSelectedPitchIdx] = useHybridState(
+    props.selectedPitchIdx,
+    props.setSelectedPitchIdx,
+    0
+  );
+  // UI playing/not
+  const [playing, setPlaying] = useHybridState(
+    props.playing,
+    props.setPlaying,
+    false
+  );
+  // User-adjusted spin axis vector (THREE.Vector3 or null)
+  const [userSpinAxis, setUserSpinAxis] = useHybridState(
+    props.userSpinAxis,
+    props.setUserSpinAxis,
+    null
+  );
+  // User seam orientation adjustment (THREE.Matrix4 or null)
+  const [userSeamOrientationMatrix, setUserSeamOrientationMatrix] = useHybridState(
+    props.userSeamOrientationMatrix,
+    props.setUserSeamOrientationMatrix,
+    null
+  );
 
+  // --- 3. Derived values
+  const selectedPitch = pitches[selectedPitchIdx] || null;
   const seamOrientation = getSeamOrientationObj(selectedPitch);
 
-
-  /// user adjust attempt
-  const [userSpinAxis, setUserSpinAxis] = useState(null);
-  const [userSeamOrientationMatrix, setUserSeamOrientationMatrix] = useState(null);
-
-  /// spin axis with user adjust attempt - usememo only re renders if dependencies change
+  // -- SPIN AXIS vector (either: user override, or from pitch)
   const spinAxisVector = useMemo(() => {
     if (userSpinAxis) return userSpinAxis;
     if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
-
     return new THREE.Vector3(
-      -selectedPitch.spin_x,
-      selectedPitch.spin_z,
-      selectedPitch.spin_y
+      -selectedPitch.spin_x || 0,
+      selectedPitch.spin_z || 0,
+      selectedPitch.spin_y || 0
     ).normalize();
   }, [selectedPitch, userSpinAxis]);
 
-  const spinRateRPM = 50; 
+  // -- SPIN RATE (could be hybrid controlled. If you want: add as prop/useHybridState)
+  // Here, let’s just use a constant
+  const spinRateRPM =  10;
 
-  // Use pitch's seam orientation matrix as base \
-  function pitchSeamToMatrix4(seam) {
-      if (!seam) return new THREE.Matrix4();
-      const elements = [
-          seam.xx, seam.xy, seam.xz, 0,
-          seam.yx, seam.yy, seam.yz, 0,
-          seam.zx, seam.zy, seam.zz, 0,
-          0, 0, 0, 1
-      ];
-      const m = new THREE.Matrix4();
-      m.set(...elements);
-      return m;
-  }
+  // -- Seam orientation matrix (from pitch)
+  const baseSeamMatrix = useMemo(
+    () => pitchSeamToMatrix4(seamOrientation),
+    [seamOrientation]
+  );
 
-  // const adjustedPitchSeamObj = convertMatrix4ToSeamOrientation(adjustedPitchMatrix);
-  const baseSeamMatrix = useMemo(() => pitchSeamToMatrix4(seamOrientation), [seamOrientation]);
-
+  // -- Matrix after optional user adjustment
   const adjustedPitchMatrix = useMemo(() => {
-  const m = baseSeamMatrix.clone();
-  if (userSeamOrientationMatrix) {
-      m.multiply(userSeamOrientationMatrix); // Apply adjustment!
+    console.log("baseSeamMatrix elements:", baseSeamMatrix.elements);
+    console.log("userSeamOrientationMatrix elements:", userSeamOrientationMatrix ? userSeamOrientationMatrix.elements : "null or undefined");
+
+    const m = baseSeamMatrix.clone();
+    if (userSeamOrientationMatrix) {
+      m.multiply(userSeamOrientationMatrix);
     }
-    console.log("baseSeamMatrix", baseSeamMatrix.elements);
-    console.log(" userSeamOrientationMatrix", userSeamOrientationMatrix?.elements);
-    console.log("multiplied adjustedPitchMatrix", m.elements);
+    console.log("adjustedPitchMatrix elements:", m.elements);
 
     return m;
   }, [baseSeamMatrix, userSeamOrientationMatrix]);
 
-  const adjustedPitchSeamObjfirst = adjustedPitchMatrix; // already a Matrix4
+  // -- Plain seam orientation object for use in rendering/model
+  const adjustedPitchSeamObj = convertMatrix4ToSeamOrientation(adjustedPitchMatrix);
 
-  const adjustedPitchSeamObj = convertMatrix4ToSeamOrientation(adjustedPitchSeamObjfirst)
   const strippedSeamOrientation = {
     xx: adjustedPitchSeamObj.seam_orientation_xx,
     xy: adjustedPitchSeamObj.seam_orientation_xy,
@@ -222,10 +263,8 @@ function App() {
     zy: adjustedPitchSeamObj.seam_orientation_zy,
     zz: adjustedPitchSeamObj.seam_orientation_zz,
   };
-  console.log("🧩 converted seam matrix is plain object:", typeof adjustedPitchSeamObj === "object" && ! (adjustedPitchSeamObj instanceof THREE.Matrix4));
-  console.log("🧩 adjustedPitchSeamObj is valid:", adjustedPitchSeamObj instanceof THREE.Matrix4); // should be true
 
-
+  // --- Render
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       {/* Play/Pause */}
@@ -255,37 +294,36 @@ function App() {
           </select>
         )}
       </div>
-      
-      <BallOrientationSliders
-          onOrientationMatrixChange={setUserSeamOrientationMatrix}
-          initialMatrix={new THREE.Matrix4()} // always reset to identity
-          pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
 
-          // pitchKey={selectedPitch?.PitchUID}
+      {/* Ball Orientation Adjustment */}
+      <BallOrientationSliders
+        onOrientationMatrixChange={setUserSeamOrientationMatrix}
+        initialMatrix={new THREE.Matrix4()} // always reset to identity
+        pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
       />
 
       <SpinAxisSliders
         initialSpinAxis={
           selectedPitch
             ? new THREE.Vector3(
-                -selectedPitch.spin_x,
-                selectedPitch.spin_z,
-                selectedPitch.spin_y
+                -selectedPitch.spin_x || 0,
+                selectedPitch.spin_z || 0,
+                selectedPitch.spin_y || 0
               ).normalize()
             : new THREE.Vector3(1, 0, 0)
         }
-        pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
-        onSpinAxisChange={setUserSpinAxis}
+        pitchKey={selectedPitch?.PitchUID ?? ""}
+        onSpinAxisChange={setUserSpinAxis} 
+        // Optionally you can also pass tiltDeg, gyroDeg, setTiltDeg, setGyroDeg if you refactor sliders further
       />
-      
-      {/* Panels that display the pitch info for slsected pitch and adjusted pitch  */}
+
+      {/* Pitch info panels */}
       <PitchInfoPanels
-          selectedPitch={selectedPitch}
-          userSpinAxis={userSpinAxis}
-          adjustedSeamMatrix={adjustedPitchSeamObj}
-          
+        selectedPitch={selectedPitch}
+        userSpinAxis={userSpinAxis}
+        adjustedSeamMatrix={adjustedPitchSeamObj}
       />
-    
+
       {/* 3D Canvas */}
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
         <ambientLight intensity={1} />
@@ -297,11 +335,8 @@ function App() {
           spinAxis={spinAxisVector}
           useSeamOrientation={true}
         />
-
         <OrbitControls />
-        {/* <axesHelper /> */}
       </Canvas>
-
     </div>
   );
 }
