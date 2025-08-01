@@ -23,20 +23,6 @@ export default function BallOrientationSliders({
         }
     }, [pitchKey, initialMatrix, lastPitchKey]);
 
-    // // Compute orientation matrix whenever sliders change
-    // useEffect(() => {
-    //     const eul = new THREE.Euler(
-    //         THREE.MathUtils.degToRad(rotX),
-    //         THREE.MathUtils.degToRad(rotY),
-    //         0, 
-    //         "XYZ"
-    //     );
-    //     const mat4 = new THREE.Matrix4().makeRotationFromEuler(eul);
-
-    //     // Pass matrix to parent
-    //     onOrientationMatrixChange(mat4);
-    // }, [rotX, rotY]);
-
     useEffect(() => {
         const eul = new THREE.Euler(
             THREE.MathUtils.degToRad(rotX),
