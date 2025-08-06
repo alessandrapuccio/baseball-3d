@@ -6,7 +6,7 @@ import * as THREE from "three";
 import SpinAxisSliders from "./components/SpinAxisSliders";
 import PitchInfoPanels from "./components/PitchInfoPanels";
 import BallOrientationSliders from "./components/BallOrientationSliders";
-
+import { AxesHelper } from 'three'; 
 
 function Rod() {
   return (
@@ -35,7 +35,7 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
 
   useEffect(() => {
     if (gltf.scene) {
-      // Align model correctly on load (kept from your original)
+      // Align model correctly on load
       gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
     }
   }, [gltf]);
@@ -44,11 +44,12 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
   useEffect(() => {
     if (modelGroupRef.current) {
       if (useSeamOrientation && seamOrientation) {
-        const m4 = new THREE.Matrix4();
-        m4.set(
-          seamOrientation.xx, -seamOrientation.yx, -seamOrientation.zx, 0,
-          seamOrientation.xy, -seamOrientation.yy, -seamOrientation.zy, 0,
-          seamOrientation.xz, -seamOrientation.yz, -seamOrientation.zz, 0,
+        const m4 = new THREE.Matrix4();  
+
+        m4.set( 
+          -seamOrientation.xx, seamOrientation.xz, seamOrientation.xy, 0,
+          -seamOrientation.yx, seamOrientation.yz, seamOrientation.yy, 0,
+          -seamOrientation.zx, seamOrientation.zz, seamOrientation.zy, 0,
           0, 0, 0, 1
         );
 
@@ -61,7 +62,7 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
         modelGroupRef.current.rotation.set(0, 0, 0);
       }
     }
-  }, [useSeamOrientation, seamOrientation]);
+  }, [useSeamOrientation, seamOrientation]);  
 
   // Align rod with spinAxis when using seamOrientation
   useEffect(() => {
@@ -95,6 +96,8 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
       spinGroupRef.current.quaternion.multiplyQuaternions(qSpin, spinGroupRef.current.quaternion);
     }
   });
+  const axesHelper = new AxesHelper(5); 
+  axesHelper.setColors(0xff00ff, 0x00ffff, 0x00ff00); // magenta cyan green 
 
 
   return (
@@ -104,6 +107,8 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
             <primitive object={gltf.scene} scale={2} />
+              <primitive object={axesHelper} />
+
           </group>
         </group>
       </group>
@@ -114,21 +119,27 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
 function convertMatrix4ToSeamOrientation(matrix4) {
   const e = matrix4.elements; // column order: e[0], e[4], e[8] are first row elements
   
-  return {
-    seam_orientation_xx: e[0],  // M11
-    seam_orientation_xy: e[4],  // M12 (second column, first row)
-    seam_orientation_xz: e[8],  // M13 (third column, first row)
+  return {                // row col
+    seam_orientation_xx: e[0],  // 11
+    seam_orientation_xy: e[8],  // 12 
+    seam_orientation_xz: e[4],  // 13 
 
-    seam_orientation_yx: e[1],  // M21 (first column, second row)
-    seam_orientation_yy: e[5],  // M22
-    seam_orientation_yz: e[9],  // M23
+    seam_orientation_yx: e[1],  // 21 
+    seam_orientation_yy: e[9],  // 22
+    seam_orientation_yz: e[5],  // 23
 
-    seam_orientation_zx: e[2],  // M31
-    seam_orientation_zy: e[6],  // M32
-    seam_orientation_zz: e[10], // M33
+    seam_orientation_zx: e[2],  // 31
+    seam_orientation_zy: e[10],  // 32
+    seam_orientation_zz: e[6], // 33
   };
 }
 
+        // m4.set( 
+        //   -seamOrientation.xx, 4 seamOrientation.xz, 8  seamOrientation.xy, 0,
+        //  1 -seamOrientation.yx, 5 seamOrientation.yz, 9  seamOrientation.yy, 0,
+        //  2 -seamOrientation.zx, 6 seamOrientation.zz, 10  seamOrientation.zy, 0,
+        // 3  0,                    7  0,                11  0,            12     1
+        // );
 
 function App() {
   const [pitches, setPitches] = useState([]);
@@ -171,9 +182,9 @@ function App() {
     if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
 
     return new THREE.Vector3(
-      -selectedPitch.spin_x,
-      selectedPitch.spin_z,
-      selectedPitch.spin_y
+      selectedPitch.spin_backspin, //-selectedPitch.spin_x,
+      selectedPitch.spin_sidespin, //selectedPitch.spin_z,
+      -selectedPitch.spin_gyrospin //selectedPitch.spin_y,
     ).normalize();
   }, [selectedPitch, userSpinAxis]);
 
@@ -183,15 +194,22 @@ function App() {
   function pitchSeamToMatrix4(seam) {
       if (!seam) return new THREE.Matrix4();
       const elements = [
-          seam.xx, seam.xy, seam.xz, 0,
-          seam.yx, seam.yy, seam.yz, 0,
-          seam.zx, seam.zy, seam.zz, 0,
+          seam.xx, seam.xz, seam.xy, 0,
+          seam.yx, seam.yz, seam.yy, 0,
+          seam.zx, seam.zz, seam.zy, 0,
           0, 0, 0, 1
       ];
       const m = new THREE.Matrix4();
       m.set(...elements);
       return m;
   }
+  
+        // m4.set( 
+        //   -seamOrientation.xx, 4 seamOrientation.xz, 8  seamOrientation.xy, 0,
+        //  1 -seamOrientation.yx, 5 seamOrientation.yz, 9  seamOrientation.yy, 0,
+        //  2 -seamOrientation.zx, 6 seamOrientation.zz, 10  seamOrientation.zy, 0,
+        // 3  0,                    7  0,                11  0,            12     1
+        // );
 
   // const adjustedPitchSeamObj = convertMatrix4ToSeamOrientation(adjustedPitchMatrix);
   const baseSeamMatrix = useMemo(() => pitchSeamToMatrix4(seamOrientation), [seamOrientation]);
@@ -268,9 +286,12 @@ function App() {
         initialSpinAxis={
           selectedPitch
             ? new THREE.Vector3(
-                -selectedPitch.spin_x,
-                selectedPitch.spin_z,
-                selectedPitch.spin_y
+              selectedPitch.spin_backspin, //-selectedPitch.spin_x,
+              selectedPitch.spin_sidespin, //selectedPitch.spin_z,
+              -selectedPitch.spin_gyrospin
+                //  -selectedPitch.spin_x,
+                // selectedPitch.spin_z,
+                // selectedPitch.spin_y
               ).normalize()
             : new THREE.Vector3(1, 0, 0)
         }
@@ -296,6 +317,7 @@ function App() {
           seamOrientation={strippedSeamOrientation}
           spinAxis={spinAxisVector}
           useSeamOrientation={true}
+          
         />
 
         <OrbitControls />
