@@ -56,33 +56,6 @@ function BaseballModel({ spinRate, playing, seamOrientation, spinAxis, useSeamOr
     }
     invalidate();
   }, [useSeamOrientation, seamOrientation, invalidate]);
-   // Example useEffect with slerp for smooth quaternion transition
-  // const [targetQuaternion, setTargetQuaternion] = useState(new THREE.Quaternion());
-  // const currentQuaternion = useRef(new THREE.Quaternion());
-
-  // useEffect(() => {
-  //   if (useSeamOrientation && seamOrientation) {
-  //     const m4 = new THREE.Matrix4();
-  //     m4.set(
-  //       seamOrientation.xx, -seamOrientation.yx, -seamOrientation.zx, 0,
-  //       seamOrientation.xy, -seamOrientation.yy, -seamOrientation.zy, 0,
-  //       seamOrientation.xz, -seamOrientation.yz, -seamOrientation.zz, 0,
-  //       0, 0, 0, 1
-  //     );
-  //     const q = new THREE.Quaternion();
-  //     q.setFromRotationMatrix(m4);
-  //     setTargetQuaternion(q);
-  //   }
-  //   invalidate()
-  // }, [seamOrientation, useSeamOrientation]);
-
-  // useFrame(() => {
-  //   if (modelGroupRef.current) {
-  //     // Smoothly interpolate between current and target
-  //     currentQuaternion.current.slerp(targetQuaternion, 0.1); // 0.1 controls speed
-  //     modelGroupRef.current.quaternion.copy(currentQuaternion.current);
-  //   }
-  // });
 
   useEffect(() => {
     if (rodGroupRef.current) {
@@ -219,11 +192,6 @@ function App() {
   const selectedPitch = pitches[selectedPitchIdx] || null;
   const seamOrientation = getSeamOrientationObj(selectedPitch);
 
-
-
-
-  // const [playing, setPlaying] = useState(true);
-
   // Reference for last selected pitch index to detect pitch changes
   const lastPitchIndexRef = useRef(null);
 
@@ -261,12 +229,6 @@ function App() {
       }
     }
   }, [selectedPitch, selectedPitchIdx]);
-
-
-
-
-
-
 
 
 
