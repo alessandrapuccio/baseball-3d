@@ -6,256 +6,212 @@ import * as THREE from "three";
 import SpinAxisSliders from "./components/SpinAxisSliders";
 import PitchInfoPanels from "./components/PitchInfoPanels";
 import BallOrientationSliders from "./components/BallOrientationSliders";
-import { AxesHelper } from 'three'; 
+import { AxesHelper } from 'three';
 
+// function Rod() {
+//   return (
+//     <group>
+//       {/* Rod along X axis */}
+//       <mesh rotation={[0, 0, Math.PI / 2]}>
+//         <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} />
+//         <meshStandardMaterial color="red" />
+//       </mesh>
+//       {/* Arrowhead on right (positive X direction) */}
+//       <mesh position={[0.15, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+//         <coneGeometry args={[0.015, 0.05, 32]} />
+
+//         <meshStandardMaterial color="red" />
+//       </mesh>
+//     </group>
+//   );
+// }
 function Rod() {
+  // og
+  const originalLength = 0.3;
+  const originalTipLength = 0.05;
+  const originalTipRadius = 0.015;
+  const originalRodRadius = 0.0075;
+
+  // Scaled values
+  const rodLength = originalLength * 15;
+  const tipLength = originalTipLength * 10;
+  const tipRadius = originalTipRadius * 10;
+  const rodRadius = originalRodRadius * 6;
+  const tipPositionX = rodLength / 2;
+
   return (
     <group>
-      {/* Rod along X axis */}
+      {/* Rod along X axis (rotated from Z by default) */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} />
+        <cylinderGeometry args={[rodRadius, rodRadius, rodLength, 32]} />
         <meshStandardMaterial color="red" />
-      </mesh>
+      </mesh> 
 
       {/* Arrowhead on right (positive X direction) */}
-      <mesh position={[0.15, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-        <coneGeometry args={[0.015, 0.05, 32]} />
+      <mesh position={[tipPositionX, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+        <coneGeometry args={[tipRadius, tipLength, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
     </group>
-
   );
 }
 
-function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spinAxis}) {
+function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam_orientation_lon }) {
   const gltf = useGLTF("/models/baseball.gltf");
   const spinGroupRef = useRef();
   const modelGroupRef = useRef();
   const rodGroupRef = useRef();
 
+  /////making purple dt
+  // Convert lat/lon to radians
+  const latRad = (seam_orientation_lat * Math.PI) / 180;
+  const lonRad = (seam_orientation_lon * Math.PI) / 180;
+
+  // Find the  point on a unit sphere (radius = 1)
+  const markerPosition = useMemo(() => {
+    const x = Math.cos(latRad) * Math.cos(lonRad); // X = cos(lat) * cos(lon)
+    const y = Math.sin(latRad);                    // Y = sin(lat)
+    const z = Math.cos(latRad) * Math.sin(lonRad); // Z = cos(lat) * sin(lon)
+    console.log("x: ", x, " y: ", y," z: ", z)
+    return new THREE.Vector3(x, y, z);
+  }, [seam_orientation_lat, seam_orientation_lon]);
+
+
+
   useEffect(() => {
     if (gltf.scene) {
-      // Align model correctly on load
       gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
     }
   }, [gltf]);
 
-  // Apply ball orientation from seamOrientation quaternion if enabled
+
   useEffect(() => {
     if (modelGroupRef.current) {
-      if (useSeamOrientation && seamOrientation) {
-        const m4 = new THREE.Matrix4();  
+      if (
+        seam_orientation_lat != null &&
+        seam_orientation_lon != null &&
+        spinAxis
+      ) {
+        // 1. Convert seam_orientation_lat/lon to radians
+        const lat = THREE.MathUtils.degToRad(seam_orientation_lat); // -90 to 90
+        const lon = THREE.MathUtils.degToRad(seam_orientation_lon); // -180 to 180
 
-        m4.set( 
-          -seamOrientation.xx, seamOrientation.xz, seamOrientation.xy, 0,
-          -seamOrientation.yx, seamOrientation.yz, seamOrientation.yy, 0,
-          -seamOrientation.zx, seamOrientation.zz, seamOrientation.zy, 0,
-          0, 0, 0, 1
+        // 2. Find the point on the ball surface (unit sphere)
+        const x = Math.cos(lat) * Math.sin(lon);
+        const y = Math.sin(lat);
+        const z = Math.cos(lat) * Math.cos(lon);
+
+        // 3. Create the vector from ball center to entry point
+        const surfaceVector = new THREE.Vector3(-x, y, z).normalize();
+
+        // 4. Rotate the ball so that the spin axis rod (default +X) aligns with surfaceVector
+        const defaultRodVector = new THREE.Vector3(1, 0, 0); // rod points along +X by default
+        const q = new THREE.Quaternion().setFromUnitVectors(
+          defaultRodVector,
+          surfaceVector
         );
 
-        const q = new THREE.Quaternion();
-        q.setFromRotationMatrix(m4); // rotate from base
-        modelGroupRef.current.quaternion.copy(q); // make this rotation on the ball's axes
+        modelGroupRef.current.quaternion.copy(q); // apply rotation
       } else {
-        // If not using seam orientation, reset rotation
+        // Reset if no lat/lon
         modelGroupRef.current.quaternion.identity();
         modelGroupRef.current.rotation.set(0, 0, 0);
       }
     }
-  }, [useSeamOrientation, seamOrientation]);  
+  }, [seam_orientation_lat, seam_orientation_lon, spinAxis]);
 
-
-  // Align rod with spinAxis when using seamOrientation
+  // Spin axis rod orientation (SAME AS B4)
   useEffect(() => {
     if (rodGroupRef.current) {
-      if (useSeamOrientation && spinAxis) {
-        const defaultAxis = new THREE.Vector3(1, 0, 0); // rod default along +X
+      if (spinAxis) {
+        const defaultAxis = new THREE.Vector3(1, 0, 0);
+        
+
         const q = new THREE.Quaternion().setFromUnitVectors(
           defaultAxis,
           spinAxis.clone().normalize()
         );
         rodGroupRef.current.quaternion.copy(q);
       } else {
-        // Reset rod orientation if not using seamOrientation
         rodGroupRef.current.quaternion.identity();
       }
     }
-  }, [spinAxis, useSeamOrientation]);
+  }, [spinAxis]);
 
   // Spin animation around spinAxis
   useFrame((state, delta) => {
     if (playing && spinGroupRef.current) {
       const radPerSec = (spinRate * 2 * Math.PI) / 60;
       const angle = radPerSec * delta;
-
-      // Always spin around the local X axis (which matches rod's orientation)
       const localX = new THREE.Vector3(1, 0, 0);
       const qSpin = new THREE.Quaternion();
       qSpin.setFromAxisAngle(localX, angle);
-
-      // Apply spin relative to rodGroup's current rotation
       spinGroupRef.current.quaternion.multiplyQuaternions(qSpin, spinGroupRef.current.quaternion);
     }
   });
-  const axesHelper = new AxesHelper(5); 
-  axesHelper.setColors(0xff00ff, 0x00ffff, 0x00ff00); // magenta cyan green 
 
+  const axesHelper = new AxesHelper(1);
+  axesHelper.setColors(0xff00ff, 0x00ffff, 0x00ff00);
 
   return (
     <group>
       <group ref={rodGroupRef}>
         <Rod />
-        <group ref={spinGroupRef}>
+        <group ref={spinGroupRef}> 
           <group ref={modelGroupRef}>
-            <primitive object={gltf.scene} scale={2} />
-              <primitive object={axesHelper} />
-
+            <primitive object={gltf.scene} scale={28} />
+            <primitive object={axesHelper} />
           </group>
         </group>
       </group>
+        <mesh position={markerPosition}>
+          <sphereGeometry args={[0.03, 16, 16]} /> 
+          <meshStandardMaterial color="purple" />
+        </mesh>
     </group>
-  );
+  );  
 }
-
-function convertMatrix4ToSeamOrientation(matrix4) {
-  const e = matrix4.elements; // column order: e[0], e[4], e[8] are first row elements
-  
-  return {                // row col
-
-    seam_orientation_xy: e[8],  // 12 
-    seam_orientation_yy: e[9],  // 22
-    seam_orientation_zy: e[10],  // 32
-   
-    seam_orientation_xz: e[4],  // 11
-    seam_orientation_yz: e[5],  // 21 
-    seam_orientation_zz: e[6],  // 31
-
-    seam_orientation_xx: e[0],  // 13 
-    seam_orientation_yx: e[1],  // 23
-    seam_orientation_zx: e[2], // 33
-  };
-}
-
-        // m4.set( 
-        //  0 seamOrientation.xx, 4 seamOrientation.xz, seamOrientation.xy, 0,
-        //  1 seamOrientation.yx, 5 seamOrientation.yz, seamOrientation.yy, 0,
-        //  2 seamOrientation.zx, 6 seamOrientation.zz, seamOrientation.zy, 0,
-        //  3 0,                  7  0,                      0,              1
-        // );
-
 
 function App() {
   const [pitches, setPitches] = useState([]);
   const [selectedPitchIdx, setSelectedPitchIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // Load pitch data
   useEffect(() => {
     fetch("/gilbert_augEighth.json").then((res) => res.json()).then((data) => setPitches(data || []));
   }, []);
 
   const selectedPitch = pitches[selectedPitchIdx] || null;
-  
-  // helper to get seam orientation matrix
-  function getSeamOrientationObj(pitch) {
-    if (!pitch) return null;
-    return {
-      xx: pitch.seam_orientation_xx,
-      xy: pitch.seam_orientation_xy,
-      xz: pitch.seam_orientation_xz,
-      yx: pitch.seam_orientation_yx,
-      yy: pitch.seam_orientation_yy,
-      yz: pitch.seam_orientation_yz,
-      zx: pitch.seam_orientation_zx,
-      zy: pitch.seam_orientation_zy,
-      zz: pitch.seam_orientation_zz,
-    };
-  }
 
-  const seamOrientation = getSeamOrientationObj(selectedPitch);
-
-  /// user adjust attempt
   const [userSpinAxis, setUserSpinAxis] = useState(null);
-  const [userSeamOrientationMatrix, setUserSeamOrientationMatrix] = useState(null);
 
-  /// spin axis with user adjust attempt - usememo only re renders if dependencies change
+  // -- NEW: get lat/lon from pitch/user (replace with your logic as needed)
+  const seam_orientation_lat = selectedPitch?.seam_orientation_lat ?? 0;
+  const seam_orientation_lon = selectedPitch?.seam_orientation_lon ?? 0;
+
   const spinAxisVector = useMemo(() => {
     if (userSpinAxis) return userSpinAxis;
     if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
-
     return new THREE.Vector3(
-      selectedPitch.spin_backspin, //-selectedPitch.spin_x,
-      selectedPitch.spin_sidespin, //selectedPitch.spin_z,
-      -selectedPitch.spin_gyrospin //selectedPitch.spin_y,
+      selectedPitch.spin_backspin,
+      selectedPitch.spin_sidespin,
+      -selectedPitch.spin_gyrospin
+      // -selectedPitch.spin_x, 
+      // selectedPitch.spin_z,
+      // selectedPitch.spin_y,
     ).normalize();
   }, [selectedPitch, userSpinAxis]);
 
-  const spinRateRPM = 50; 
+  const spinRateRPM = 50;
 
-  // Use pitch's seam orientation matrix as base \
-  function pitchSeamToMatrix4(seam) {
-      if (!seam) return new THREE.Matrix4();
-      const elements = [
-          seam.xx, seam.xz, seam.xy, 0,
-          seam.yx, seam.yz, seam.yy, 0,
-          seam.zx, seam.zz, seam.zy, 0,
-          0, 0, 0, 1
-      ];
-      const m = new THREE.Matrix4();
-      m.set(...elements);
-      return m;
-  }
-        // m4.set( 
-        //   -seamOrientation.xx, 4 seamOrientation.xz, 8  seamOrientation.xy, 0,
-        //  1 -seamOrientation.yx, 5 seamOrientation.yz, 9  seamOrientation.yy, 0,
-        //  2 -seamOrientation.zx, 6 seamOrientation.zz, 10  seamOrientation.zy, 0,
-        // 3  0,                    7  0,                11  0,            12     1
-        // );
-
-  // const adjustedPitchSeamObj = convertMatrix4ToSeamOrientation(adjustedPitchMatrix);
-  const baseSeamMatrix = useMemo(() => pitchSeamToMatrix4(seamOrientation), [seamOrientation]);
-
-  const adjustedPitchMatrix = useMemo(() => {
-    const m = baseSeamMatrix.clone();
-    if (userSeamOrientationMatrix) {
-        m.multiply(userSeamOrientationMatrix); // Apply adjustment??
-      }
-      console.log("baseSeamMatrix", baseSeamMatrix.elements);
-      console.log(" userSeamOrientationMatrix", userSeamOrientationMatrix?.elements);
-      console.log("multiplied adjustedPitchMatrix", m.elements);
-
-      return m;
-  }, [baseSeamMatrix, userSeamOrientationMatrix]);
-
-  const adjustedPitchSeamObjfirst = adjustedPitchMatrix; // already a Matrix4
-
-  const adjustedPitchSeamObj = convertMatrix4ToSeamOrientation(adjustedPitchSeamObjfirst)
-  const strippedSeamOrientation = {
-    xx: adjustedPitchSeamObj.seam_orientation_xx,
-    xy: adjustedPitchSeamObj.seam_orientation_xy,
-    xz: adjustedPitchSeamObj.seam_orientation_xz,
-    yx: adjustedPitchSeamObj.seam_orientation_yx,
-    yy: adjustedPitchSeamObj.seam_orientation_yy,
-    yz: adjustedPitchSeamObj.seam_orientation_yz,
-    zx: adjustedPitchSeamObj.seam_orientation_zx,
-    zy: adjustedPitchSeamObj.seam_orientation_zy,
-    zz: adjustedPitchSeamObj.seam_orientation_zz,
-  };
-  console.log("converted seam matrix is plain object:", typeof adjustedPitchSeamObj === "object" && ! (adjustedPitchSeamObj instanceof THREE.Matrix4));
-  console.log("adjustedPitchSeamObj is valid:", adjustedPitchSeamObj instanceof THREE.Matrix4); // should be true
-
-
-  const axesHelper = new AxesHelper(5); 
-  axesHelper.setColors(0x000000, 0x0000d8, 0x873e23); // black, navy, brown
+  const axesHelper = new AxesHelper(5);
+  axesHelper.setColors(0x000000, 0x0000d8, 0x873e23);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      {/* Play/Pause */}
       <div style={{ position: "absolute", top: 20, right: 20, zIndex: 20 }}>
         <PlayButton playing={playing} onClick={() => setPlaying((p) => !p)} />
       </div>
-
-      {/* Pitch selector */}
       <div style={{ position: "absolute", top: 20, left: 20, zIndex: 20 }}>
         {pitches.length > 0 && (
           <select
@@ -277,58 +233,46 @@ function App() {
           </select>
         )}
       </div>
-      
       <BallOrientationSliders
-          onOrientationMatrixChange={setUserSeamOrientationMatrix}
-          initialMatrix={new THREE.Matrix4()} // always reset to identity
-          pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
-
-          // pitchKey={selectedPitch?.PitchUID}
+        onOrientationMatrixChange={() => {}} // disabled, no matrix logic
+        initialMatrix={new THREE.Matrix4()}
+        pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
       />
-
       <SpinAxisSliders
         initialSpinAxis={
           selectedPitch
             ? new THREE.Vector3(
-              selectedPitch.spin_backspin, //-selectedPitch.spin_x,
-              selectedPitch.spin_sidespin, //selectedPitch.spin_z,
-              -selectedPitch.spin_gyrospin
-                //  -selectedPitch.spin_x,
+                selectedPitch.spin_backspin,
+                selectedPitch.spin_sidespin,
+                -selectedPitch.spin_gyrospin
+                // -selectedPitch.spin_x,
                 // selectedPitch.spin_z,
-                // selectedPitch.spin_y
+                // selectedPitch.spin_y,
               ).normalize()
             : new THREE.Vector3(1, 0, 0)
         }
         pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
         onSpinAxisChange={setUserSpinAxis}
       />
-      
-      {/* Panels that display the pitch info for slsected pitch and adjusted pitch  */}
       <PitchInfoPanels
-          selectedPitch={selectedPitch}
-          userSpinAxis={userSpinAxis}
-          adjustedSeamMatrix={adjustedPitchSeamObj}
-          
+        selectedPitch={selectedPitch}
+        userSpinAxis={userSpinAxis}
+        // orientation panel omitted
       />
-    
-      {/* 3D Canvas */}
-      <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
+      <Canvas camera={{ position: [0, 0, 7], fov: 50 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
         <BaseballModel
           spinRate={spinRateRPM}
           playing={playing}
-          seamOrientation={strippedSeamOrientation}
           spinAxis={spinAxisVector}
-          useSeamOrientation={true}
-          
+          // <<-- new data
+          seam_orientation_lat={seam_orientation_lat}
+          seam_orientation_lon={seam_orientation_lon}
         />
-
         <OrbitControls />
         <primitive object={axesHelper} />
-        {/* <axesHelper /> */}
       </Canvas>
-
     </div>
   );
 }
