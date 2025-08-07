@@ -54,8 +54,8 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
         );
 
         const q = new THREE.Quaternion();
-        q.setFromRotationMatrix(m4);
-        modelGroupRef.current.quaternion.copy(q);
+        q.setFromRotationMatrix(m4); // rotate from base
+        modelGroupRef.current.quaternion.copy(q); // make this rotation on the ball's axes
       } else {
         // If not using seam orientation, reset rotation
         modelGroupRef.current.quaternion.identity();
@@ -63,6 +63,7 @@ function BaseballModel({spinRate, playing,seamOrientation,useSeamOrientation,spi
       }
     }
   }, [useSeamOrientation, seamOrientation]);  
+
 
   // Align rod with spinAxis when using seamOrientation
   useEffect(() => {
@@ -120,26 +121,28 @@ function convertMatrix4ToSeamOrientation(matrix4) {
   const e = matrix4.elements; // column order: e[0], e[4], e[8] are first row elements
   
   return {                // row col
-    seam_orientation_xx: e[0],  // 11
+
     seam_orientation_xy: e[8],  // 12 
-    seam_orientation_xz: e[4],  // 13 
-
-    seam_orientation_yx: e[1],  // 21 
     seam_orientation_yy: e[9],  // 22
-    seam_orientation_yz: e[5],  // 23
-
-    seam_orientation_zx: e[2],  // 31
     seam_orientation_zy: e[10],  // 32
-    seam_orientation_zz: e[6], // 33
+   
+    seam_orientation_xz: e[4],  // 11
+    seam_orientation_yz: e[5],  // 21 
+    seam_orientation_zz: e[6],  // 31
+
+    seam_orientation_xx: e[0],  // 13 
+    seam_orientation_yx: e[1],  // 23
+    seam_orientation_zx: e[2], // 33
   };
 }
 
         // m4.set( 
-        //   -seamOrientation.xx, 4 seamOrientation.xz, 8  seamOrientation.xy, 0,
-        //  1 -seamOrientation.yx, 5 seamOrientation.yz, 9  seamOrientation.yy, 0,
-        //  2 -seamOrientation.zx, 6 seamOrientation.zz, 10  seamOrientation.zy, 0,
-        // 3  0,                    7  0,                11  0,            12     1
+        //  0 seamOrientation.xx, 4 seamOrientation.xz, seamOrientation.xy, 0,
+        //  1 seamOrientation.yx, 5 seamOrientation.yz, seamOrientation.yy, 0,
+        //  2 seamOrientation.zx, 6 seamOrientation.zz, seamOrientation.zy, 0,
+        //  3 0,                  7  0,                      0,              1
         // );
+
 
 function App() {
   const [pitches, setPitches] = useState([]);
@@ -170,7 +173,6 @@ function App() {
   }
 
   const seamOrientation = getSeamOrientationObj(selectedPitch);
-
 
   /// user adjust attempt
   const [userSpinAxis, setUserSpinAxis] = useState(null);
@@ -203,7 +205,6 @@ function App() {
       m.set(...elements);
       return m;
   }
-  
         // m4.set( 
         //   -seamOrientation.xx, 4 seamOrientation.xz, 8  seamOrientation.xy, 0,
         //  1 -seamOrientation.yx, 5 seamOrientation.yz, 9  seamOrientation.yy, 0,
@@ -215,15 +216,15 @@ function App() {
   const baseSeamMatrix = useMemo(() => pitchSeamToMatrix4(seamOrientation), [seamOrientation]);
 
   const adjustedPitchMatrix = useMemo(() => {
-  const m = baseSeamMatrix.clone();
-  if (userSeamOrientationMatrix) {
-      m.multiply(userSeamOrientationMatrix); // Apply adjustment!
-    }
-    console.log("baseSeamMatrix", baseSeamMatrix.elements);
-    console.log(" userSeamOrientationMatrix", userSeamOrientationMatrix?.elements);
-    console.log("multiplied adjustedPitchMatrix", m.elements);
+    const m = baseSeamMatrix.clone();
+    if (userSeamOrientationMatrix) {
+        m.multiply(userSeamOrientationMatrix); // Apply adjustment??
+      }
+      console.log("baseSeamMatrix", baseSeamMatrix.elements);
+      console.log(" userSeamOrientationMatrix", userSeamOrientationMatrix?.elements);
+      console.log("multiplied adjustedPitchMatrix", m.elements);
 
-    return m;
+      return m;
   }, [baseSeamMatrix, userSeamOrientationMatrix]);
 
   const adjustedPitchSeamObjfirst = adjustedPitchMatrix; // already a Matrix4
@@ -240,9 +241,12 @@ function App() {
     zy: adjustedPitchSeamObj.seam_orientation_zy,
     zz: adjustedPitchSeamObj.seam_orientation_zz,
   };
-  console.log("🧩 converted seam matrix is plain object:", typeof adjustedPitchSeamObj === "object" && ! (adjustedPitchSeamObj instanceof THREE.Matrix4));
-  console.log("🧩 adjustedPitchSeamObj is valid:", adjustedPitchSeamObj instanceof THREE.Matrix4); // should be true
+  console.log("converted seam matrix is plain object:", typeof adjustedPitchSeamObj === "object" && ! (adjustedPitchSeamObj instanceof THREE.Matrix4));
+  console.log("adjustedPitchSeamObj is valid:", adjustedPitchSeamObj instanceof THREE.Matrix4); // should be true
 
+
+  const axesHelper = new AxesHelper(5); 
+  axesHelper.setColors(0x000000, 0x0000d8, 0x873e23); // black, navy, brown
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -321,6 +325,7 @@ function App() {
         />
 
         <OrbitControls />
+        <primitive object={axesHelper} />
         {/* <axesHelper /> */}
       </Canvas>
 
