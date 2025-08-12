@@ -8,23 +8,6 @@ import PitchInfoPanels from "./components/PitchInfoPanels";
 import BallOrientationSliders from "./components/BallOrientationSliders";
 import { AxesHelper } from 'three';
 
-// function Rod() {
-//   return (
-//     <group>
-//       {/* Rod along X axis */}
-//       <mesh rotation={[0, 0, Math.PI / 2]}>
-//         <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} />
-//         <meshStandardMaterial color="red" />
-//       </mesh>
-//       {/* Arrowhead on right (positive X direction) */}
-//       <mesh position={[0.15, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-//         <coneGeometry args={[0.015, 0.05, 32]} />
-
-//         <meshStandardMaterial color="red" />
-//       </mesh>
-//     </group>
-//   );
-// }
 function Rod() {
   // og
   const originalLength = 0.3;
@@ -34,9 +17,9 @@ function Rod() {
 
   // Scaled values
   const rodLength = originalLength * 15;
-  const tipLength = originalTipLength * 10;
-  const tipRadius = originalTipRadius * 10;
-  const rodRadius = originalRodRadius * 6;
+  const tipLength = originalTipLength * 8;
+  const tipRadius = originalTipRadius * 8;
+  const rodRadius = originalRodRadius * 8;
   const tipPositionX = rodLength / 2;
 
   return (
@@ -56,7 +39,7 @@ function Rod() {
   );
 }
 
-function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam_orientation_lon }) {
+function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam_orientation_lon, userRotX, userRotY }) {
   const gltf = useGLTF("/models/baseball.gltf");
   const spinGroupRef = useRef();
   const modelGroupRef = useRef();
@@ -66,7 +49,7 @@ function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam
   // Convert lat/lon to radians
   const latRad = (seam_orientation_lat * Math.PI) / 180;
   const lonRad = (seam_orientation_lon * Math.PI) / 180;
-
+ 
   // Find the  point on a unit sphere (radius = 1)
   const markerPosition = useMemo(() => {
     const x = Math.cos(latRad) * Math.cos(lonRad); // X = cos(lat) * cos(lon)
@@ -76,57 +59,68 @@ function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam
     return new THREE.Vector3(x, y, z);
   }, [seam_orientation_lat, seam_orientation_lon]);
 
-
-
   useEffect(() => {
     if (gltf.scene) {
       gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
     }
   }, [gltf]);
 
+useEffect(() => {
+  if (!modelGroupRef.current) return;
 
-  useEffect(() => {
-    if (modelGroupRef.current) {
-      if (
-        seam_orientation_lat != null &&
-        seam_orientation_lon != null &&
-        spinAxis
-      ) {
-        // 1. Convert seam_orientation_lat/lon to radians
-        const lat = THREE.MathUtils.degToRad(seam_orientation_lat); // -90 to 90
-        const lon = THREE.MathUtils.degToRad(seam_orientation_lon); // -180 to 180
+  // STEP 1 — Start from identity
+  modelGroupRef.current.quaternion.identity();
 
-        // 2. Find the point on the ball surface (unit sphere)
-        const x = Math.cos(lat) * Math.sin(lon);
-        const y = Math.sin(lat);
-        const z = Math.cos(lat) * Math.cos(lon);
+  // --- PHASE 1: Apply pitch's starting seam orientation from lat/lon ---
+  if (
+    seam_orientation_lat != null &&
+    seam_orientation_lon != null &&
+    spinAxis
+  ) {
+    const lat = THREE.MathUtils.degToRad(seam_orientation_lat);
+    const lon = THREE.MathUtils.degToRad(seam_orientation_lon);
 
-        // 3. Create the vector from ball center to entry point
-        const surfaceVector = new THREE.Vector3(-x, y, z).normalize();
+    const x = Math.cos(lat) * Math.sin(lon);
+    const y = Math.sin(lat);
+    const z = Math.cos(lat) * Math.cos(lon);
 
-        // 4. Rotate the ball so that the spin axis rod (default +X) aligns with surfaceVector
-        const defaultRodVector = new THREE.Vector3(1, 0, 0); // rod points along +X by default
-        const q = new THREE.Quaternion().setFromUnitVectors(
-          defaultRodVector,
-          surfaceVector
-        );
+    const surfaceVector = new THREE.Vector3(-x, y, z).normalize();
+    const defaultRodVector = new THREE.Vector3(1, 0, 0);
 
-        modelGroupRef.current.quaternion.copy(q); // apply rotation
-      } else {
-        // Reset if no lat/lon
-        modelGroupRef.current.quaternion.identity();
-        modelGroupRef.current.rotation.set(0, 0, 0);
-      }
-    }
-  }, [seam_orientation_lat, seam_orientation_lon, spinAxis]);
+    const pitchQuat = new THREE.Quaternion().setFromUnitVectors(
+      defaultRodVector,
+      surfaceVector
+    );
+
+    // Apply pitch's initial orientation
+    modelGroupRef.current.quaternion.copy(pitchQuat);
+  }
+
+  // --- PHASE 2: Apply user adjustments in yaw–pitch style ---
+  // "Top" = spin about vertical axis (Y)
+  const topRad = THREE.MathUtils.degToRad(userRotX);
+  const qTop = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    topRad
+  );
+
+  // "Front" = tilt about horizontal axis (X)
+  const frontRad = THREE.MathUtils.degToRad(userRotY);
+  const qFront = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(1, 0, 0),
+    frontRad
+  );
+
+  // Multiply in order: basePitch -> top -> front
+  modelGroupRef.current.quaternion.multiply(qTop).multiply(qFront);
+
+}, [seam_orientation_lat, seam_orientation_lon, spinAxis, userRotX, userRotY]);
 
   // Spin axis rod orientation (SAME AS B4)
   useEffect(() => {
     if (rodGroupRef.current) {
       if (spinAxis) {
         const defaultAxis = new THREE.Vector3(1, 0, 0);
-        
-
         const q = new THREE.Quaternion().setFromUnitVectors(
           defaultAxis,
           spinAxis.clone().normalize()
@@ -173,9 +167,12 @@ function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam
 }
 
 function App() {
+  const [userRotX, setUserRotX] = useState(0);
+  const [userRotY, setUserRotY] = useState(0);
   const [pitches, setPitches] = useState([]);
   const [selectedPitchIdx, setSelectedPitchIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+
 
   useEffect(() => {
     fetch("/gilbert_augEighth.json").then((res) => res.json()).then((data) => setPitches(data || []));
@@ -185,10 +182,10 @@ function App() {
 
   const [userSpinAxis, setUserSpinAxis] = useState(null);
 
-  // -- NEW: get lat/lon from pitch/user (replace with your logic as needed)
+  // get lat/lon from pitch/user 
   const seam_orientation_lat = selectedPitch?.seam_orientation_lat ?? 0;
   const seam_orientation_lon = selectedPitch?.seam_orientation_lon ?? 0;
-
+ 
   const spinAxisVector = useMemo(() => {
     if (userSpinAxis) return userSpinAxis;
     if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
@@ -233,11 +230,19 @@ function App() {
           </select>
         )}
       </div>
+
       <BallOrientationSliders
-        onOrientationMatrixChange={() => {}} // disabled, no matrix logic
-        initialMatrix={new THREE.Matrix4()}
-        pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
+        onOrientationChange={({ rotX, rotY }) => {
+          setUserRotX(rotX);
+          setUserRotY(rotY);
+        }}
+        pitchKey={
+          selectedPitch && selectedPitch.PitchUID != null
+            ? selectedPitch.PitchUID
+            : ""
+        }
       />
+
       <SpinAxisSliders
         initialSpinAxis={
           selectedPitch
@@ -248,7 +253,7 @@ function App() {
                 // -selectedPitch.spin_x,
                 // selectedPitch.spin_z,
                 // selectedPitch.spin_y,
-              ).normalize()
+              ).normalize() 
             : new THREE.Vector3(1, 0, 0)
         }
         pitchKey={selectedPitch && selectedPitch.PitchUID != null ? selectedPitch.PitchUID : ""}
@@ -262,14 +267,17 @@ function App() {
       <Canvas camera={{ position: [0, 0, 7], fov: 50 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
+
         <BaseballModel
           spinRate={spinRateRPM}
           playing={playing}
           spinAxis={spinAxisVector}
-          // <<-- new data
           seam_orientation_lat={seam_orientation_lat}
           seam_orientation_lon={seam_orientation_lon}
+          userRotX={userRotX}
+          userRotY={userRotY}
         />
+
         <OrbitControls />
         <primitive object={axesHelper} />
       </Canvas>
