@@ -4,17 +4,28 @@ import * as THREE from "three";
 
 // Converts spin axis vector to tilt/gyro
 function spinAxisToTiltGyro(spinAxis) {
+  // console.log("!!! nee !!!! psinAxis !!!!!!! \n")
   const normalized = spinAxis.clone().normalize();
   const x = normalized.x;
   const y = normalized.y;
   const z = normalized.z;
 
+  console.log("=== REACT SPIN AXIS CALCULATION ===");
+  console.log("Raw spin axis:", spinAxis);
+  console.log("Normalized spin vector: x =", x, "y =", y, "z =", z);
+
   const tilt = Math.acos(x); // from +X
   const gyro = Math.atan2(y, z); // rotation around X
 
+  const tiltDeg = THREE.MathUtils.radToDeg(tilt);
+  const gyroDeg = (THREE.MathUtils.radToDeg(gyro) + 360) % 360;
+
+  console.log("Calculated tilt =", tiltDeg, "gyro =", gyroDeg);
+  console.log("====================================");
+
   return {
-    tiltDeg: THREE.MathUtils.radToDeg(tilt),
-    gyroDeg: (THREE.MathUtils.radToDeg(gyro) + 360) % 360,
+    tiltDeg: tiltDeg,
+    gyroDeg: gyroDeg,
   };
 }
 
@@ -35,9 +46,6 @@ export default function SpinAxisSliders({ initialSpinAxis, pitchKey, onSpinAxisC
   const [gyroDeg, setGyroDeg] = useState(0);
   const [userHasAdjusted, setUserHasAdjusted] = useState(false);
   const [lastPitchKey, setLastPitchKey] = useState(null);
-
-
-
 
   /// detect new pitch has been selected
     useEffect(() => {
@@ -84,6 +92,13 @@ export default function SpinAxisSliders({ initialSpinAxis, pitchKey, onSpinAxisC
     }
   };
 
+
+
+
+
+
+
+  
  return (
   <div
     style={{
