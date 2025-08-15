@@ -20,7 +20,7 @@ function Rod() {
       {/* Rod along X axis */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[rodRadius, rodRadius, rodLength, 32]} />
-        <meshStandardMaterial color="red" />
+        <meshStandardMaterial color="blue" />
       </mesh>
       {/* Arrowhead on right (positive X direction) */}
       <mesh position={[tipPositionX, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
@@ -152,6 +152,8 @@ function BaseballModel({ spinRate, playing, spinAxis, seam_orientation_lat, seam
     </group>
   );
 }
+
+
 function App() {
   const [pitches, setPitches] = useState([]);
   const [selectedPitchUID, setSelectedPitchUID] = useState(null);
@@ -175,21 +177,21 @@ function App() {
   }, []);
 
   // NEW: handle dropdown change
-  // const handlePitchChange = (e) => {
-  //   const uid = e.target.value;
-  //   setSelectedPitchUID(uid);
-  //   setUserSpinAxis(null);
-  //   setUserRotX(0);
-  //   setUserRotY(0);
-  //   setLastSliderUpdate(null);
-  // };
+  const handlePitchChange = (e) => {
+    const uid = e.target.value;
+    setSelectedPitchUID(uid);
+    setUserSpinAxis(null);
+    setUserRotX(0);
+    setUserRotY(0);
+    setLastSliderUpdate(null);
+  };
 
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === "pitch_uid") {
         setSelectedPitchUID(e.data.value);
         setUserSpinAxis(null);
-        setUserRotX(0);
+        setUserRotX(0); 
         setUserRotY(0);
         setLastSliderUpdate(null);
       }
@@ -198,11 +200,22 @@ function App() {
         setLastSliderUpdate(Date.now());
         if ('spinTilt' in e.data && 'spinGyro' in e.data) {
           console.log("beepING ========== beeepING ============")
-          const tilt = THREE.MathUtils.degToRad(e.data.spinTilt);
-          const gyro = THREE.MathUtils.degToRad(e.data.spinGyro);
-          const x = Math.cos(tilt);
-          const y = Math.sin(tilt) * Math.sin(gyro);
-          const z = Math.sin(tilt) * Math.cos(gyro);
+          // const tilt = THREE.MathUtils.degToRad(e.data.spinTilt);
+          // const gyro = THREE.MathUtils.degToRad(e.data.spinGyro);
+          // const x = Math.cos(tilt);
+          // const y = Math.sin(tilt) * Math.sin(gyro);
+          // const z = Math.sin(tilt) * Math.cos(gyro);
+          // setUserSpinAxis(new THREE.Vector3(x, y, z).normalize());
+          
+          // FIXED CONVERSION: Match the R calculation logic
+          const tiltRad = THREE.MathUtils.degToRad(e.data.spinTilt);
+          const gyroRad = THREE.MathUtils.degToRad(e.data.spinGyro);
+          // This matches your R logic: tilt = acos(x), gyro = atan2(y,z)
+          const x = Math.cos(tiltRad);
+          const r_perp = Math.sin(tiltRad);
+          const y = r_perp * Math.sin(gyroRad);
+          const z = r_perp * Math.cos(gyroRad);
+          
           setUserSpinAxis(new THREE.Vector3(x, y, z).normalize());
         }
         if ('ballX' in e.data) setUserRotX(e.data.ballX);
@@ -221,18 +234,36 @@ function App() {
     return pitches.find(pitch => pitch.PitchUID === selectedPitchUID) || null;
   }, [selectedPitchUID, pitches]);
 
+  // const spinAxisVector = useMemo(() => {
+  //   if (userSpinAxis) return userSpinAxis;
+  //   if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
+  //   return new THREE.Vector3(
+  //     selectedPitch.spin_backspin,
+  //     selectedPitch.spin_sidespin,
+  //     -selectedPitch.spin_gyrospin
+  //     // -selectedPitch.spin_x,
+  //     // selectedPitch.spin_z,
+  //     // selectedPitch.spin_y,
+  //   ).normalize();
+  // }, [selectedPitch, userSpinAxis]);
   const spinAxisVector = useMemo(() => {
     if (userSpinAxis) return userSpinAxis;
     if (!selectedPitch) return new THREE.Vector3(1, 0, 0);
-    return new THREE.Vector3(
-      selectedPitch.spin_backspin,
-      selectedPitch.spin_sidespin,
-      -selectedPitch.spin_gyrospin
-      // -selectedPitch.spin_x,
-      // selectedPitch.spin_z,
-      // selectedPitch.spin_y,
-    ).normalize();
+    
+    // Convert from MLB coordinates to ThreeJS coordinates
+    const mlb_x = selectedPitch.spin_backspin;
+    const mlb_y = selectedPitch.spin_sidespin;
+    const mlb_z = -selectedPitch.spin_gyrospin;
+    
+    // MLB: -y is up, -z is toward pitcher, x is same
+    // ThreeJS: +y is up, +z is toward pitcher, x is same  
+    const threejs_x = mlb_x;
+    const threejs_y = mlb_y;  // Flip Y
+    const threejs_z = mlb_z;  // Flip Z
+    
+    return new THREE.Vector3(threejs_x, threejs_y, threejs_z).normalize();
   }, [selectedPitch, userSpinAxis]);
+  
 
   const seam_orientation_lat = selectedPitch?.seam_orientation_lat ?? null;
   const seam_orientation_lon = selectedPitch?.seam_orientation_lon ?? null;
@@ -242,7 +273,7 @@ function App() {
   return (
     // dropdown
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      {/* <div style={{ position: "absolute", top: 10, left: 10, zIndex: 1 }}>
+      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 1 }}>
          <select value={selectedPitchUID || ""} onChange={handlePitchChange}>
            {pitches.map(p => ( 
              <option key={p.PitchUID} value={p.PitchUID}>
@@ -250,7 +281,7 @@ function App() {
              </option>
            ))}
          </select> 
-        </div> */}
+        </div>
 
       <Canvas camera={{ position: [0, 0, 0.45], fov: 50 }}>
         <ambientLight intensity={1} />
