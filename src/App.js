@@ -6,16 +6,26 @@ import RotationSliders from './components/RotationSliders';
 import PlayButton from './components/PlayButton';
 
 function Rod() {
+  const originalLength = 0.3;
+  const originalTipLength = 0.05;
+  const originalTipRadius = 0.015;
+  const originalRodRadius = 0.0075;
+
+  const rodLength = originalLength ;
+  const tipLength = originalTipLength *.6;
+  const tipRadius = originalTipRadius *.6;
+  const rodRadius = originalRodRadius * .4;
+  const tipPositionX = rodLength / 2;
   return (
     <group rotation={[Math.PI / 2, 0, 0]}>
       {/* Rod */}
       <mesh>
-        <cylinderGeometry args={[0.0075, 0.0075, 0.3, 32]} /> {/* left width, right width, lenght, how precise the curves are*/}
+        <cylinderGeometry args={[rodRadius, rodRadius, rodLength, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
       {/* Arrowhead on left */}
-      <mesh position={[0, 0.15, 0]} rotation={[Math.PI, Math.PI, Math.PI]}> 
-        <coneGeometry args={[0.015, 0.05, 32]} />
+      <mesh position={[0, -0.15, 0]} rotation={[Math.PI, Math.PI, 0]}> 
+        <coneGeometry args={[tipRadius, tipLength, 32]} />
         <meshStandardMaterial color="red" />
       </mesh>
     </group>

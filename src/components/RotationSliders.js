@@ -43,7 +43,7 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
         }}>
 
             {/* Orientation Sliders */}
-            <h4 style={{ marginBottom: 8 }}>Orientation</h4>
+            {/* <h4 style={{ marginBottom: 8 }}>Orientation</h4>
             <div style={{ marginBottom: 12 }}>
                 <label>
                     X Axis:
@@ -87,7 +87,7 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
                     />
                     °
                 </label>
-            </div>
+            </div> */}
 
             {/* Gyro (X axis) */}
             <h4 style={{ marginBottom: 8 }}>Spin Axis</h4>
@@ -116,7 +116,7 @@ export default function RotationSliders({ rotX, setRotX, rotY, setRotY, rotZ, se
             {/* Spin Axis (Y axis) */}
             <div style={{ marginBottom: 12 }}>
                 <label>
-                    Spin Axis:
+                    Tilt:
                     <input
                         type="range"
                         min={0}
