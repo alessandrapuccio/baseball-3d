@@ -1,8 +1,12 @@
 // src/App.jsx
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, Suspense } from "react";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { Html } from '@react-three/drei';
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+// import { useLoader } from "@react-three/fiber";
+import { Text } from '@react-three/drei';
 
 function Rod() {
   const originalLength = 0.3;
@@ -29,22 +33,93 @@ function Rod() {
       </mesh>
     </group>
   );
+}  
+
+
+function BaseballLoading() {
+  const dot1Ref = useRef();
+  const dot2Ref = useRef();
+  const dot3Ref = useRef();
+
+  useFrame((state) => {
+    const time = state.clock.elapsedTime;
+    
+    // Animate dots with staggered bounce
+    if (dot1Ref.current) {
+      dot1Ref.current.scale.setScalar(0.5 + Math.max(0, Math.sin(time * 3)) * 0.5);
+    }
+    if (dot2Ref.current) {
+      dot2Ref.current.scale.setScalar(0.5 + Math.max(0, Math.sin(time * 3 - 0.5)) * 0.5);
+    }
+    if (dot3Ref.current) {
+      dot3Ref.current.scale.setScalar(0.5 + Math.max(0, Math.sin(time * 3 - 1)) * 0.5);
+    }
+  });
+
+  return (
+    <group>
+      {/* Text */}
+      <Text
+        position={[0, 0.01, 0]}
+        fontSize={0.008}
+        color="#666666"
+        anchorX="center"
+        anchorY="center"
+      >
+        Ball loading
+      </Text>
+      
+      {/* Loading dots */}
+      <mesh ref={dot1Ref} position={[-0.008, -0.01, 0]}>
+        <sphereGeometry args={[0.002, 8, 8]} />
+        <meshBasicMaterial color="#999999" />
+      </mesh>
+      
+      <mesh ref={dot2Ref} position={[0, -0.01, 0]}>
+        <sphereGeometry args={[0.002, 8, 8]} />
+        <meshBasicMaterial color="#999999" />
+      </mesh>
+      
+      <mesh ref={dot3Ref} position={[0.008, -0.01, 0]}>
+        <sphereGeometry args={[0.002, 8, 8]} />
+        <meshBasicMaterial color="#999999" />
+      </mesh>
+    </group>
+  );
 }
 
+function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin }) {
+  // const gltf = useLoader(GLTFLoader, "/models/baseball-v2.glb");
+  const gltf = useLoader(
+    GLTFLoader,
+    "/models/baseball-v2.glb",
+    (loader) => {
+      loader.setMeshoptDecoder(MeshoptDecoder);
+    }
+  );
 
+  // const loader = new GLTFLoader();
+  // loader.setMeshoptDecoder(MeshoptDecoder);
 
-function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation }) {
-  const gltf = useLoader(GLTFLoader, "/models/baseball.gltf");
+  // const gltf = useLoader(() => loader.loadAsync("/models/baseball-v2.glb"));
+
   const spinGroupRef = React.useRef();
   const modelGroupRef = React.useRef();
   const rodGroupRef = React.useRef();
   const { invalidate } = useThree();
-
+ 
   useEffect(() => {
     if (gltf.scene) {
       gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
     }
   }, [gltf]);
+
+  useEffect(() => {
+    if (spinGroupRef.current) {
+      spinGroupRef.current.quaternion.identity();
+      invalidate();
+    }
+  }, [resetSpin, invalidate]);
 
   // Direct seam orientation from lat/lon values
   useEffect(() => {
@@ -81,6 +156,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
 
     invalidate();
   }, [useSeamOrientation, currentSeamLat, currentSeamLon, invalidate]);
+
 
   // Updated spin axis rod orientation
   useEffect(() => {
@@ -129,6 +205,7 @@ function App() {
   const [currentSpinAxis, setCurrentSpinAxis] = useState(new THREE.Vector3(1, 0, 0));
   const [currentSeamLat, setCurrentSeamLat] = useState(0);
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
+  const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
 
   useEffect(() => {
     fetch("/gilbert_augEighth.json")
@@ -141,36 +218,70 @@ function App() {
       });
   }, []);
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.data?.type === "pitch_uid") {
-        console.log("Pitch UID changed:", e.data.value);
-        setSelectedPitchUID(e.data.value);
-      }
-      else if (e.data?.type === "slider_update") {
-        // Receive the calculated spin vector from R
-        if ('spinVectorX' in e.data && 'spinVectorY' in e.data && 'spinVectorZ' in e.data) {
-          const newSpinAxis = new THREE.Vector3(
-            e.data.spinVectorX,
-            e.data.spinVectorY,
-            e.data.spinVectorZ
-          ).normalize();
+  // useEffect(() => {
+  //   const handler = (e) => {
+  //     if (e.data?.type === "pitch_uid") {
+  //       console.log("Pitch UID changed:", e.data.value);
+  //       setSelectedPitchUID(e.data.value);
+  //     }
+  //     else if (e.data?.type === "slider_update") {
+  //       // Receive the calculated spin vector from R
+  //       if ('spinVectorX' in e.data && 'spinVectorY' in e.data && 'spinVectorZ' in e.data) {
+  //         const newSpinAxis = new THREE.Vector3(
+  //           e.data.spinVectorX,
+  //           e.data.spinVectorY,
+  //           e.data.spinVectorZ
+  //         ).normalize();
 
-          console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
-          setCurrentSpinAxis(newSpinAxis);
-        }
+  //         console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
+  //         setCurrentSpinAxis(newSpinAxis);
+  //       }
 
-        // Update seam orientation directly with lat/lon values
-        if ('ballX' in e.data) setCurrentSeamLon(e.data.ballX); // ballX controls longitude
-        if ('ballY' in e.data) setCurrentSeamLat(e.data.ballY);  // ballY controls latitude
-      }
-      else if (e.data?.type === "play_toggle") {
-        setPlaying(Boolean(e.data.value));
-      }
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+  //       // Update seam orientation directly with lat/lon values
+  //       if ('ballX' in e.data) setCurrentSeamLon(e.data.ballX); // ballX controls longitude
+  //       if ('ballY' in e.data) setCurrentSeamLat(e.data.ballY);  // ballY controls latitude
+  //     }
+  //     else if (e.data?.type === "play_toggle") {
+  //       setPlaying(Boolean(e.data.value));
+  //     }
+  //   };
+  //   window.addEventListener("message", handler);
+  //   return () => window.removeEventListener("message", handler);
+  // }, []);
+    useEffect(() => {
+        const handler = (e) => {
+          if (e.data?.type === "pitch_uid") {
+            console.log("Pitch UID changed:", e.data.value);
+            setSelectedPitchUID(e.data.value);
+          }
+          else if (e.data?.type === "slider_update") {
+            // Receive the calculated spin vector from R
+            if ('spinVectorX' in e.data && 'spinVectorY' in e.data && 'spinVectorZ' in e.data) {
+              const newSpinAxis = new THREE.Vector3(
+                e.data.spinVectorX,
+                e.data.spinVectorY,
+                e.data.spinVectorZ
+              ).normalize();
+
+              console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
+              setCurrentSpinAxis(newSpinAxis);
+            }
+
+            // Update seam orientation directly with lat/lon values
+            if ('ballX' in e.data) setCurrentSeamLon(e.data.ballX); // ballX controls longitude
+            if ('ballY' in e.data) setCurrentSeamLat(e.data.ballY);  // ballY controls latitude
+          }
+          else if (e.data?.type === "play_toggle") {
+            setPlaying(Boolean(e.data.value));
+          }
+          else if (e.data?.type === "reset_spin_rotation") {
+            setResetSpin(prev => !prev); // Toggle to trigger reset
+          }
+        };
+        window.addEventListener("message", handler);
+        return () => window.removeEventListener("message", handler);
   }, []);
+
 
   const selectedPitch = useMemo(() => {
     if (!selectedPitchUID || !pitches.length) return null;
@@ -198,6 +309,11 @@ function App() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <Canvas camera={{ position: [0, 0, 0.55], fov: 50 }}>
+        {/* Sky */}
+        <mesh scale={[50, 50, 50]}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshBasicMaterial color="#a7cef2" side={THREE.BackSide} />
+        </mesh>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
 
@@ -206,7 +322,7 @@ function App() {
           <planeGeometry args={[20, 16]} />
           <meshPhongMaterial color="#489147" />
         </mesh>
-
+ 
         {/* Dirt circle around home plate */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.139, -5.76]}>
           <circleGeometry args={[1, 64]} />
@@ -291,14 +407,26 @@ function App() {
         </group>
 
         {/* Baseball + spin axis rod */}
-        <BaseballModel
+        {/* <BaseballModel
           spinRate={spinRateRPM}
           playing={playing}
           spinAxis={currentSpinAxis}
           currentSeamLat={currentSeamLat}
           currentSeamLon={currentSeamLon}
           useSeamOrientation={true}
-        />
+        /> */}
+
+        <Suspense fallback={<BaseballLoading />}>
+          <BaseballModel 
+            spinRate={spinRateRPM} 
+            playing={playing} 
+            spinAxis={currentSpinAxis} 
+            currentSeamLat={currentSeamLat} 
+            currentSeamLon={currentSeamLon} 
+            useSeamOrientation={true} 
+            resetSpin={resetSpin} 
+          />
+        </Suspense>
       </Canvas>
     </div>
   );
