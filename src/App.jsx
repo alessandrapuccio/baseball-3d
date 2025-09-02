@@ -190,7 +190,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
         <Rod />
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
-            <primitive object={gltf.scene} scale={2} />
+            <primitive object={gltf.scene} scale={2.2} />
           </group>
         </group>
       </group>
@@ -295,7 +295,6 @@ function App() {
           }
           else if (e.data?.type === "clock_toggle") {
             setShowClock(Boolean(e.data.value));
-            console.log("Clock toggle received:", e.data.value);
 
           }
         };
@@ -434,7 +433,6 @@ function App() {
         </group>
 
         {(() => {
-          console.log("Rendering clock check - showClock:", showClock);
           return showClock ? <Clock /> : null;
         })()}
 
