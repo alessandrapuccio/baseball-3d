@@ -153,7 +153,7 @@ function App() {
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
 
   useEffect(() => {
-    fetch("/gilbert_augEighth.json")
+    fetch("/averaging_pitch_data.json")
       .then(res => res.json())
       .then(data => {
         setPitches(data || []);
