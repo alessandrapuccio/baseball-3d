@@ -35,7 +35,7 @@ function Rod() {
   );
 }  
 
-function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin }) {
+function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod }) {
   // const gltf = useLoader(GLTFLoader, "/models/baseball-v2.glb");
   const gltf = useLoader(
     GLTFLoader,
@@ -127,7 +127,11 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
   return (
     <group>
       <group ref={rodGroupRef}>
-        <Rod />
+        
+        {(() => {
+          return showRod ?  <Rod /> : null;
+        })()}
+
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
             <primitive object={gltf.scene} scale={2.2} />
@@ -142,7 +146,8 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
 function App() {
   const [showClock, setShowClock] = useState(true);
   const [showField, setShowField] = useState(true);
-
+  const [showRod, setShowRod] = useState(true);
+  
   const [pitches, setPitches] = useState([]);
   const [selectedPitchUID, setSelectedPitchUID] = useState(null);
   const [playing, setPlaying] = useState(false);
@@ -180,7 +185,7 @@ function App() {
                 e.data.spinVectorZ
               ).normalize();
 
-              console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
+              // console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
               setCurrentSpinAxis(newSpinAxis);
             }
 
@@ -199,6 +204,9 @@ function App() {
           }
           else if (e.data?.type === "field_toggle") {
             setShowField(Boolean(e.data.value));
+          }
+          else if (e.data?.type === "rod_toggle") {
+            setShowRod(Boolean(e.data.value));
           }
         };
         window.addEventListener("message", handler);
@@ -241,9 +249,7 @@ function App() {
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
 
         {(() => {
-          return showField ? 
-          <Field /> 
-          : null;
+          return showField ?  <Field /> : null;
         })()}
 
         {(() => {
@@ -259,6 +265,7 @@ function App() {
             currentSeamLon={currentSeamLon} 
             useSeamOrientation={true} 
             resetSpin={resetSpin} 
+            showRod={showRod}
           />
         </Suspense>
       </Canvas>
