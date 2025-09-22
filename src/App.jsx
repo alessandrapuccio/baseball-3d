@@ -157,19 +157,17 @@ function App() {
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
 
-  useEffect(() => {
-    fetch("/averaging_pitch_data.json")
-      .then(res => res.json())
-      .then(data => {
-        setPitches(data || []);
-        if (data && data.length > 0) {
-          setSelectedPitchUID(data[0].PitchUID);
-        }
-      });
-  }, []);
-
-
+  // useEffect(() => {
+  //   fetch("/averaging_pitch_data.json")
+  //     .then(res => res.json())
+  //     .then(data => {
+  //       setPitches(data || []);
+  //       if (data && data.length > 0) {
+  //         setSelectedPitchUID(data[0].PitchUID);
+  //       }
+  //     });
   // }, []);
+
     useEffect(() => {
         const handler = (e) => {
           if (e.data?.type === "pitch_uid") {
