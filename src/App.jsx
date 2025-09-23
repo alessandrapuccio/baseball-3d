@@ -19,6 +19,7 @@ function Rod() {
   const tipRadius = originalTipRadius * .6;
   const rodRadius = originalRodRadius * .4;
   const tipPositionX = rodLength / 2;
+  
   return (
     <group>
       {/* Rod along X axis */}
@@ -157,16 +158,7 @@ function App() {
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
 
-  // useEffect(() => {
-  //   fetch("/averaging_pitch_data.json")
-  //     .then(res => res.json())
-  //     .then(data => {
-  //       setPitches(data || []);
-  //       if (data && data.length > 0) {
-  //         setSelectedPitchUID(data[0].PitchUID);
-  //       }
-  //     });
-  // }, []);
+  
 
     useEffect(() => {
         const handler = (e) => {
