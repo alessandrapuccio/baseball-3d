@@ -28,7 +28,7 @@ function BaseballLoading() {
       <Text
         position={[0, 0.01, 0]}
         fontSize={0.008}
-        color="#666666"
+        color="#F9F6EE"
         anchorX="center"
         anchorY="center"
       >
@@ -38,17 +38,17 @@ function BaseballLoading() {
       {/* Loading dots */}
       <mesh ref={dot1Ref} position={[-0.008, -0.01, 0]}>
         <sphereGeometry args={[0.002, 8, 8]} />
-        <meshBasicMaterial color="#999999" />
+        <meshBasicMaterial color="#F9F6EE" />
       </mesh>
       
       <mesh ref={dot2Ref} position={[0, -0.01, 0]}>
         <sphereGeometry args={[0.002, 8, 8]} />
-        <meshBasicMaterial color="#999999" />
+        <meshBasicMaterial color="#F9F6EE" />
       </mesh>
       
       <mesh ref={dot3Ref} position={[0.008, -0.01, 0]}>
         <sphereGeometry args={[0.002, 8, 8]} />
-        <meshBasicMaterial color="#999999" />
+        <meshBasicMaterial color="#F9F6EE" />
       </mesh>
     </group>
   );
