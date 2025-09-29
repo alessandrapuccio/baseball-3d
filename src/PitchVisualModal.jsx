@@ -80,7 +80,7 @@ function PitchVisualModal({ modalId, containerId }) {
       {/* Sky */}
       <mesh scale={[50, 50, 50]}>
         <sphereGeometry args={[1, 32, 32]} />
-        <meshBasicMaterial color="#3b3b3b" side={THREE.BackSide} />
+        <meshBasicMaterial color="#000000" side={THREE.BackSide} />
       </mesh>
       
       <ambientLight intensity={1} />
@@ -90,7 +90,7 @@ function PitchVisualModal({ modalId, containerId }) {
 
       <Suspense fallback={<BaseballLoading />}>
         <BaseballModel 
-          spinRate={50} // Fixed spin rate for visual appeal
+          spinRate={40} // Fixed spin rate for visual appeal
           playing={true} // Always spinning
           spinAxis={spinAxis}
           currentSeamLat={seamLat}
