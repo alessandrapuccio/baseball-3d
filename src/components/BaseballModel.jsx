@@ -6,20 +6,24 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import Rod from './Rod';
 
 
-function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod }) {
+function BaseballModel({ spinRate,  playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, path}) {
   // const gltf = useLoader(GLTFLoader, "/models/baseball-v2.glb");
   const gltf = useLoader(
     GLTFLoader,
-    "/models/baseball-v2.glb",
+    path,         // "/models/baseball-v2.glb",
     (loader) => {
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
   );
+
+  const clonedScene = React.useMemo(() => gltf.scene.clone(true), [gltf]);
   const spinGroupRef = React.useRef();
   const modelGroupRef = React.useRef();
   const rodGroupRef = React.useRef();
   const { invalidate } = useThree();
  
+  
+
   useEffect(() => {
     if (gltf.scene) {
       gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
@@ -105,7 +109,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
 
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
-            <primitive object={gltf.scene} scale={2.2} />
+            <primitive object={clonedScene} scale={2.2} />
           </group>
         </group>
       </group>

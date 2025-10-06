@@ -11,16 +11,26 @@ function PitchVisualModal({ modalId, containerId }) {
   const [showClock, setShowClock] = useState(false);
   const [showField, setShowField] = useState(true);
   const [showRod, setShowRod] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [spinRate, setSpinRate] = useState(40);
   const [pitchData, setPitchData] = useState(null);
   const [spinAxis, setSpinAxis] = useState(new THREE.Vector3(1, 0, 0));
   const [seamLat, setSeamLat] = useState(0);
   const [seamLon, setSeamLon] = useState(0);
+  const [path, setPath] = useState("baseball-v2.glb");
 
   useEffect(() => {
+    console.log(`React component mounted for modalId: ${modalId}`); 
     const handler = (e) => {
+      console.log('React received message:', e.data);
       // Only handle messages for this specific modal
-      if (e.data?.modalId !== modalId) return;
+      if (e.data?.modalId !== modalId) {
+        console.log(`Ignoring message - expected: ${modalId}, got: ${e.data?.modalId}`); // ADD THIS
+        return;
+      }
+      console.log(`Processing message for modalId: ${modalId}`, e.data); // ADD THIS
 
+    
       switch (e.data.type) {
         case 'modal_clock_toggle':
           setShowClock(Boolean(e.data.value));
@@ -34,10 +44,25 @@ function PitchVisualModal({ modalId, containerId }) {
           setShowRod(Boolean(e.data.value));
           break;
           
+        case 'modal_play_pause':
+          setIsPlaying(Boolean(e.data.value));
+          break;
+          
+        case 'modal_speed_change':
+          setSpinRate(prevRate => {
+            const delta = e.data.delta || 0;
+            const newRate = Math.max(5, Math.min(100, prevRate + delta));
+            return newRate;
+          });
+          break;
+          
         case 'modal_init_pitch':
           const data = e.data.pitchData;
           setPitchData(data);
           
+          if (data.path) {
+            setPath(data.path);
+          }
           // Calculate spin axis from pitch data
           const initialSpinAxis = new THREE.Vector3(
             data.spin_backspin,
@@ -54,7 +79,10 @@ function PitchVisualModal({ modalId, containerId }) {
     };
 
     window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+    return () => {
+      console.log(`React component unmounting for modalId: ${modalId}`); // ADD THIS
+      window.removeEventListener("message", handler);
+    };
   }, [modalId]);
 
   if (!pitchData) {
@@ -90,14 +118,15 @@ function PitchVisualModal({ modalId, containerId }) {
 
       <Suspense fallback={<BaseballLoading />}>
         <BaseballModel 
-          spinRate={40} // Fixed spin rate for visual appeal
-          playing={true} // Always spinning
+          spinRate={spinRate}
+          playing={isPlaying}
           spinAxis={spinAxis}
           currentSeamLat={seamLat}
           currentSeamLon={seamLon}
           useSeamOrientation={true}
           resetSpin={false}
           showRod={showRod}
+          path={path}
         />
       </Suspense>
     </Canvas>

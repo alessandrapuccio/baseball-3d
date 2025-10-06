@@ -20,10 +20,10 @@ function App() {
   const [currentSeamLat, setCurrentSeamLat] = useState(0);
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
-
+  const [path, setPath] = useState("baseball-v2.glb");
   
-
-    useEffect(() => {
+// '/models/baseball-v2.glb'
+  useEffect(() => {
         const handler = (e) => {
           if (e.data?.type === "pitch_uid") {
             console.log("Pitch UID changed:", e.data.value);
@@ -119,6 +119,7 @@ function App() {
             useSeamOrientation={true} 
             resetSpin={resetSpin} 
             showRod={showRod}
+            path={path}
           />
         </Suspense>
       </Canvas>
