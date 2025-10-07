@@ -226,10 +226,43 @@ function App() {
     }
   }, [selectedPitch]);
 
+    // Add resize listener for sidebar toggles
+  useEffect(() => {
+    const handleResize = () => {
+      // This will trigger Three.js canvas resize
+      window.dispatchEvent(new Event('resize'));
+    };
+
+    // Listen for sidebar transitions via body class changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          // Delay to let sidebar animation complete
+          setTimeout(handleResize, 350);
+        }
+      });
+    });
+
+    observer.observe(document.body, { attributes: true });
+
+    return () => observer.disconnect();
+  }, []);
+
   const spinRateRPM = 50;
+
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      <Canvas camera={{ position: [0, 0, 0.55], fov: 50 }}>
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      <Canvas 
+        camera={{ position: [0, 0, 0.47], fov: 50 }}
+        style={{ width: '100%', height: '100%' }}
+        onCreated={({ gl, camera }) => {
+          // Ensure proper sizing on mount
+          const parent = gl.domElement.parentElement;
+          gl.setSize(parent.clientWidth, parent.clientHeight);
+          camera.aspect = parent.clientWidth / parent.clientHeight;
+          camera.updateProjectionMatrix();
+        }}
+      >
         {/* Sky */}
         <mesh scale={[50, 50, 50]}>
           <sphereGeometry args={[1, 32, 32]} />
@@ -238,13 +271,8 @@ function App() {
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />
 
-        {(() => {
-          return showField ?  <Field /> : null;
-        })()}
-
-        {(() => {
-          return showClock ? <Clock /> : null;
-        })()}
+        {showField && <Field />}
+        {showClock && <Clock />}
 
         <Suspense fallback={<BaseballLoading />}>
           <BaseballModel 
