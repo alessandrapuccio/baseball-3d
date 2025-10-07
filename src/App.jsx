@@ -266,7 +266,7 @@ function App() {
         {/* Sky */}
         <mesh scale={[50, 50, 50]}>
           <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial color="#D1DBE6" side={THREE.BackSide} />
+          <meshBasicMaterial color="#000000" side={THREE.BackSide} />
         </mesh>
         <ambientLight intensity={1} />
         <directionalLight position={[0, 0, 0.3]} intensity={1} />

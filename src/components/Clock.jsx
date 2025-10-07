@@ -16,7 +16,7 @@ function Clock() {
         key={`num-${i}`}
         position={[x, y+.0085, 0.001]} // small z to avoid z-fighting
         fontSize={numberSize}
-        color="#333333"
+        color="#ffffffff"
         anchorX="center"
         anchorY="center"
       >
@@ -49,7 +49,7 @@ function Clock() {
     ticks.push(
       <mesh key={`tick-${i}`} position={[x, y, 0]} rotation={[0, 0, rotZ]}>
         <boxGeometry args={[tickThickness, tickLength, 0.001]} />
-        <meshBasicMaterial color="#333333" />
+        <meshBasicMaterial color="#ffffffff" />
       </mesh>
     );
   }
@@ -59,7 +59,7 @@ function Clock() {
       {/* Clock circle outline */}
       <mesh>
         <ringGeometry args={[clockRadius * 0.985, clockRadius, 64]} />
-        <meshBasicMaterial color="#333333" />
+        <meshBasicMaterial color="#ffffffff" />
       </mesh>
 
       {/* Numbers */}
