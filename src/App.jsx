@@ -7,6 +7,117 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import Clock from './components/Clock';
 import Field from './components/Field';
 import BaseballLoading from './components/BaseballLoading';
+import { OrbitControls } from '@react-three/drei';
+
+
+function BackSpinSeamStamp() {
+  const torusRadius = 0.075; // Major radius (distance from center to middle of tube)
+  const tubeRadius = 0.0041; // Minor radius (thickness of the band)
+
+  return (
+    <mesh position={[-0.003, 0, 0]}>
+      <torusGeometry args={[torusRadius, tubeRadius, 32, 100]} />
+      <meshStandardMaterial color="#990099" />
+    </mesh>
+  );
+}
+// function BackSpinSeamStamp() {
+//   const innerRadius = 0.08;  // Smaller radius
+//   const outerRadius = 0.0059;   // Slightly larger for thickness
+
+//   return (
+//     <mesh>
+//       <ringGeometry args={[outerRadius, innerRadius, 64]} />
+//       <meshStandardMaterial color="#990099" side={THREE.DoubleSide} />
+//     </mesh>
+//   );
+// }
+
+// function BackSpinSeamStamp({
+//   ballRadius = 0.05,      // radius of your baseball
+//   latDeg = 10,            // latitude in degrees (positive => above equator)
+//   lonDeg = 10,            // longitude in degrees
+//   innerRadius = 0.075,    // inner radius of flat ring
+//   thickness = 0.006,      // radial thickness (outer - inner)
+//   epsilon = 0.000        // small offset so ring sits on top of sphere
+// }) {
+//   const meshRef = useRef();
+
+//   useEffect(() => {
+//     // Convert degrees -> spherical coordinates
+//     // theta: polar angle from +Y axis, phi: azimuth from +X
+//     const lat = THREE.MathUtils.degToRad(latDeg);   // lat from equator
+//     const lon = THREE.MathUtils.degToRad(lonDeg);
+
+//     // We want the surface normal of the sphere at (lat, lon).
+//     // Convert from lat/lon to Cartesian. This convention places Y as "up".
+//     // theta measured from +Y: theta = (90deg - lat)
+//     const theta = THREE.MathUtils.degToRad(90 - latDeg);
+//     const phi = lon;
+
+//     const x = ballRadius * Math.sin(theta) * Math.cos(phi);
+//     const y = ballRadius * Math.cos(theta);
+//     const z = ballRadius * Math.sin(theta) * Math.sin(phi);
+
+//     const normal = new THREE.Vector3(x, y, z).normalize();
+
+//     if (!meshRef.current) return;
+
+//     // Position the ring so it's centered at the tangent point, nudged out by epsilon
+//     const position = normal.clone().multiplyScalar(ballRadius + epsilon);
+//     meshRef.current.position.copy(position);
+
+//     // Align the ring's local +Z axis (default for RingGeometry) to the surface normal
+//     // So the ring's plane becomes tangent to the sphere.
+//     const from = new THREE.Vector3(0, 0, 1); // ring's initial normal
+//     const to = normal.clone();
+//     const q = new THREE.Quaternion().setFromUnitVectors(from, to);
+//     meshRef.current.quaternion.copy(q);
+
+//     // Optional: if you have a separate "rod" or other transform to match,
+//     // you can further rotate the ring around the normal to match seam orientation.
+//     // Example: meshRef.current.rotateOnAxis(normal, someAngleRadians);
+
+//   }, [ballRadius, latDeg, lonDeg, epsilon]);
+
+//   return (
+//     <mesh ref={meshRef}>
+//       <ringGeometry args={[innerRadius, innerRadius + thickness, 128]} />
+//       <meshStandardMaterial color="#990099" side={THREE.DoubleSide} />
+//     </mesh>
+//   );
+// }
+
+// function BackSpinSeamStamp({
+//   ballRadius = 0.08,
+//   thickness = 0.003,  // how thick the marker stroke is
+//   width = 0.01        // how wide the band appears
+// }) {
+//   const path = useMemo(() => {
+//     const curve = new THREE.Curve();
+//     curve.getPoint = t => {
+//       const angle = t * Math.PI * 2;
+//       return new THREE.Vector3(
+//         Math.cos(angle) * ballRadius,
+//         Math.sin(angle) * ballRadius,
+//         0
+//       );
+//     };
+//     return curve;
+//   }, [ballRadius]);
+
+//   const material = new THREE.MeshStandardMaterial({ color: "#990099" });
+
+//   return (
+//     <mesh>
+//       {/* TubeGeometry(path, segments, radius, radialSegments, closed) */}
+//       <tubeGeometry args={[path, 200, thickness, 16, true]} />
+//       <meshStandardMaterial color="#990099" />
+//     </mesh>
+//   );
+// }
+
+
 
 function Rod() {
   const originalLength = 0.3;
@@ -36,7 +147,7 @@ function Rod() {
   );
 }  
 
-function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod }) {
+function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showBackSpinSeamStamp  }) {
   // const gltf = useLoader(GLTFLoader, "/models/baseball-v2.glb");
   const gltf = useLoader(
     GLTFLoader,
@@ -129,9 +240,9 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
     <group>
       <group ref={rodGroupRef}>
         
-        {(() => {
-          return showRod ?  <Rod /> : null;
-        })()}
+          {showRod && <Rod />}
+          {showBackSpinSeamStamp && <BackSpinSeamStamp />}
+
 
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
@@ -148,7 +259,8 @@ function App() {
   const [showClock, setShowClock] = useState(true);
   const [showField, setShowField] = useState(true);
   const [showRod, setShowRod] = useState(true);
-  
+  const [showBackSpinSeamStamp, setShowBackSpinSeamStamp] = useState(true);
+
   const [pitches, setPitches] = useState([]);
   const [selectedPitchUID, setSelectedPitchUID] = useState(null);
   const [playing, setPlaying] = useState(false);
@@ -197,6 +309,9 @@ function App() {
           }
           else if (e.data?.type === "rod_toggle") {
             setShowRod(Boolean(e.data.value));
+          }
+          else if (e.data?.type === "backspinseamstamp_toggle") {
+            setShowBackSpinSeamStamp(Boolean(e.data.value));
           }
         };
         window.addEventListener("message", handler);
@@ -251,7 +366,7 @@ function App() {
   const spinRateRPM = 50;
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+    <div style={{ width: "100%", height: "100vh", position: "relative" }}>
       <Canvas 
         camera={{ position: [0, 0, 0.47], fov: 50 }}
         style={{ width: '100%', height: '100%' }}
@@ -263,6 +378,9 @@ function App() {
           camera.updateProjectionMatrix();
         }}
       >
+
+        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+
         {/* Sky */}
         <mesh scale={[50, 50, 50]}>
           <sphereGeometry args={[1, 32, 32]} />
@@ -284,6 +402,7 @@ function App() {
             useSeamOrientation={true} 
             resetSpin={resetSpin} 
             showRod={showRod}
+            showBackSpinSeamStamp={showBackSpinSeamStamp}
           />
         </Suspense>
       </Canvas>
