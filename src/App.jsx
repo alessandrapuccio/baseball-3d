@@ -7,7 +7,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import Clock from './components/Clock';
 import Field from './components/Field';
 import BaseballLoading from './components/BaseballLoading';
-import { OrbitControls } from '@react-three/drei';
+import { Edges, OrbitControls } from '@react-three/drei';
 
 
 // function BackSpinSeamStamp() {
@@ -50,8 +50,7 @@ function Rod() {
   );
 }  
 
-function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showStencil  }) {
-  // const gltf = useLoader(GLTFLoader, "/models/baseball-v2.glb");
+function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showStencil, gyro_degree }) {
   const gltf = useLoader(
     GLTFLoader,
     "/models/baseball-v2.glb",
@@ -59,6 +58,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
   );
+
   const stencil = useLoader(
     GLTFLoader,
     "/models/seam_stamper.glb",
@@ -66,23 +66,39 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
   );
+
+  const small_stamp = useLoader(
+    GLTFLoader,
+    "/models/angled_stamp_ring.glb",
+    (loader) => {
+      loader.setMeshoptDecoder(MeshoptDecoder);
+    }
+  );
+
   const spinGroupRef = React.useRef();
   const modelGroupRef = React.useRef();
   const rodGroupRef = React.useRef();
+  const stencilGroupRef = React.useRef();
   const { invalidate } = useThree();
 
  useEffect(() => {
     if (stencil.scene) {
       stencil.scene.traverse((child) => {
         if (child.isMesh && child.material) {
-          // Example: bright red
           child.material.color.set('#686868');
-          // optionally ensure the update is applied
           child.material.needsUpdate = true;
         }
       });
     }
-  }, [stencil]);
+    if (small_stamp.scene) {
+      small_stamp.scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.color.set('#6894a8');
+          child.material.needsUpdate = true;
+        }
+      });
+    }
+  }, [stencil, small_stamp]);
 
   useEffect(() => {
     if (gltf.scene) {
@@ -147,6 +163,29 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
     }
   }, [spinAxis, invalidate]);
 
+  // stencil group rotation
+  useEffect(() => {
+    if (stencilGroupRef.current) {
+      stencilGroupRef.current.quaternion.identity();
+      
+      // Rotate 90 degrees around y axis if gyro_degree is outside +/-45 range
+      if (gyro_degree != null && gyro_degree < -45) {
+        const gyroQuat = new THREE.Quaternion();
+        // gyroQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2); // rotaties around the rod 90
+        gyroQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2); // rotaties around the rod 90
+        stencilGroupRef.current.quaternion.copy(gyroQuat);
+      }
+      else if (gyro_degree != null && gyro_degree > 45) {
+        const gyroQuat = new THREE.Quaternion();
+        // gyroQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2); // rotaties around the rod 90
+        gyroQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2); // rotaties around the rod 90
+        stencilGroupRef.current.quaternion.copy(gyroQuat);
+      }
+      
+      invalidate();
+    }
+  }, [gyro_degree, invalidate]);
+
   // Spin animation
   useFrame((_, delta) => {
     if (playing && spinGroupRef.current) {
@@ -164,12 +203,14 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
       <group ref={rodGroupRef}>
         
           {showRod && <Rod />}
-
+          <group ref={stencilGroupRef}>
+            {showStencil && <primitive object={stencil.scene} scale={.002} />}
+          </group>
+          <primitive object={small_stamp.scene} scale={.0019} rotation={[0, -Math.PI / 2, 0]}/>
 
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
             <primitive object={gltf.scene} scale={2.2} />
-            <primitive object={stencil.scene} scale={.002} />
 
           </group>
         </group>
@@ -183,7 +224,8 @@ function App() {
   const [showClock, setShowClock] = useState(true);
   const [showField, setShowField] = useState(true);
   const [showRod, setShowRod] = useState(true);
-  const [showStencil, setShowStencil] = useState(true);
+  const [showStencil, setShowStencil] = useState(false);
+  const [resetRodDrag, setResetRodDrag] = useState(false)
 
   const [pitches, setPitches] = useState([]);
   const [selectedPitchUID, setSelectedPitchUID] = useState(null);
@@ -193,7 +235,7 @@ function App() {
   const [currentSeamLat, setCurrentSeamLat] = useState(0);
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
-
+  const [gyroDegree, setGyroDegree] = useState(-58)
   
 
     useEffect(() => {
@@ -211,7 +253,9 @@ function App() {
                 e.data.spinVectorZ
               ).normalize();
 
-              // console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
+              setGyroDegree(e.data.spinGyro)
+
+              console.log("Received spin vector - Tilt:", e.data.spinTilt, "Gyro:", e.data.spinGyro, "Vector:", newSpinAxis);
               setCurrentSpinAxis(newSpinAxis);
             }
 
@@ -236,6 +280,9 @@ function App() {
           }
           else if (e.data?.type === "stencil_toggle") {
             setShowStencil(Boolean(e.data.value));
+          }
+          else if (e.data?.type === "reset_ball_drag") {
+            setResetRodDrag(Boolean(e.data.value));
           }
         };
         window.addEventListener("message", handler);
@@ -288,22 +335,67 @@ function App() {
   }, []);
 
   const spinRateRPM = 50;
+  const baseballGroupRef = React.useRef();
+  const [mouseDown, setMouseDown] = React.useState(false);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+  const rotationRef = React.useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e) => {
+    setMouseDown(true);
+    setMousePos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!mouseDown || !baseballGroupRef.current) return;
+
+    setResetRodDrag(false)
+
+    const deltaX = e.clientX - mousePos.x;
+    const deltaY = e.clientY - mousePos.y;
+
+    rotationRef.current.y += deltaX * 0.01;
+    rotationRef.current.x += deltaY * -0.01;
+
+    baseballGroupRef.current.rotation.order = 'YXZ';
+    baseballGroupRef.current.rotation.y = rotationRef.current.y;
+    baseballGroupRef.current.rotation.x = rotationRef.current.x;
+
+    setMousePos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    setMouseDown(false);
+  };
+
+  useEffect(() => {
+    if (resetRodDrag) {
+      rotationRef.current = { x: 0, y: 0 };
+      if (baseballGroupRef.current) {
+        baseballGroupRef.current.rotation.x = 0;
+        baseballGroupRef.current.rotation.y = 0;
+      }
+      setResetRodDrag(false);
+    }
+  }, [resetRodDrag]);
 
   return (
-    <div style={{ width: "100%", height: "100vh", position: "relative" }}>
+    <div 
+      style={{ width: "100%", height: "100vh", position: "relative" }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
       <Canvas 
         camera={{ position: [0, 0, 0.47], fov: 50 }}
         style={{ width: '100%', height: '100%' }}
         onCreated={({ gl, camera }) => {
-          // Ensure proper sizing on mount
           const parent = gl.domElement.parentElement;
           gl.setSize(parent.clientWidth, parent.clientHeight);
           camera.aspect = parent.clientWidth / parent.clientHeight;
           camera.updateProjectionMatrix();
         }}
       >
-
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
 
         {/* Sky */}
         <mesh scale={[50, 50, 50]}>
@@ -316,23 +408,26 @@ function App() {
         {showField && <Field />}
         {showClock && <Clock />}
 
-        <Suspense fallback={<BaseballLoading />}>
-          <BaseballModel 
-            spinRate={spinRateRPM} 
-            playing={playing} 
-            spinAxis={currentSpinAxis} 
-            currentSeamLat={currentSeamLat} 
-            currentSeamLon={currentSeamLon} 
-            useSeamOrientation={true} 
-            resetSpin={resetSpin} 
-            showRod={showRod}
-            showStencil={showStencil}
-          />
-        </Suspense>
+        <group ref={baseballGroupRef}>
+          <Suspense fallback={<BaseballLoading />}>
+            <BaseballModel 
+              spinRate={spinRateRPM} 
+              playing={playing} 
+              spinAxis={currentSpinAxis} 
+              currentSeamLat={currentSeamLat} 
+              currentSeamLon={currentSeamLon} 
+              useSeamOrientation={true} 
+              resetSpin={resetSpin} 
+              showRod={showRod}
+              showStencil={showStencil}
+              gyro_degree={gyroDegree}
+            />
+          </Suspense>
+        </group>
+
       </Canvas>
     </div>
   );
-
 }
 
 export default App;
