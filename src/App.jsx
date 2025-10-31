@@ -9,19 +9,6 @@ import Field from './components/Field';
 import BaseballLoading from './components/BaseballLoading';
 import { Edges, OrbitControls } from '@react-three/drei';
 
-
-// function BackSpinSeamStamp() {
-//   const torusRadius = 0.077; // Major radius (distance from center to middle of tube)
-//   const tubeRadius = 0.0041; // Minor radius (thickness of the band)
-
-//   return (
-//     <mesh position={[-0.003, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-//       <torusGeometry args={[torusRadius, tubeRadius, 32, 100]} />
-//       <meshStandardMaterial color="#990099" />
-//     </mesh>
-//   );
-// }
-
 function Rod() {
   const originalLength = 0.3;
   const originalTipLength = 0.05;
@@ -50,7 +37,7 @@ function Rod() {
   );
 }  
 
-function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showStencil, gyro_degree }) {
+function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showStencil, showStamp, gyro_degree }) {
   const gltf = useLoader(
     GLTFLoader,
     "/models/baseball-v2.glb",
@@ -75,12 +62,21 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
     }
   );
 
+  const large_stamp = useLoader(
+    GLTFLoader,
+    "/models/larger_stamp_ring.glb",
+    (loader) => {
+      loader.setMeshoptDecoder(MeshoptDecoder);
+    }
+  );
+
   const spinGroupRef = React.useRef();
   const modelGroupRef = React.useRef();
   const rodGroupRef = React.useRef();
   const stencilGroupRef = React.useRef();
   const { invalidate } = useThree();
 
+  // just sets the colors there's definitely a better way to do this
  useEffect(() => {
     if (stencil.scene) {
       stencil.scene.traverse((child) => {
@@ -92,6 +88,14 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
     }
     if (small_stamp.scene) {
       small_stamp.scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.color.set('#6894a8');
+          child.material.needsUpdate = true;
+        }
+      });
+    }
+    if (large_stamp.scene) {
+      large_stamp.scene.traverse((child) => {
         if (child.isMesh && child.material) {
           child.material.color.set('#6894a8');
           child.material.needsUpdate = true;
@@ -203,11 +207,15 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
       <group ref={rodGroupRef}>
         
           {showRod && <Rod />}
+
           <group ref={stencilGroupRef}>
             {showStencil && <primitive object={stencil.scene} scale={.002} />}
           </group>
-          <primitive object={small_stamp.scene} scale={.0019} rotation={[0, -Math.PI / 2, 0]}/>
 
+          {/* <primitive object={small_stamp.scene} scale={.0019} rotation={[0, -Math.PI / 2, 0]}/> */}
+          {showStamp && gyro_degree < -45  && <primitive object={small_stamp.scene} scale={.0019} rotation={[0, -Math.PI / 2, 0]} />}
+          {showStamp && gyro_degree > 45  && <primitive object={small_stamp.scene} scale={.0019} rotation={[0, Math.PI / 2, 0]} />}
+          {showStamp && (gyro_degree < 45 && gyro_degree > -45 ) && <primitive object={large_stamp.scene} scale={.00202} rotation={[0, -Math.PI / 2, 0]} />}
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
             <primitive object={gltf.scene} scale={2.2} />
@@ -225,6 +233,7 @@ function App() {
   const [showField, setShowField] = useState(true);
   const [showRod, setShowRod] = useState(true);
   const [showStencil, setShowStencil] = useState(false);
+  const [showStamp, setShowStamp] = useState(false);
   const [resetRodDrag, setResetRodDrag] = useState(false)
 
   const [pitches, setPitches] = useState([]);
@@ -235,7 +244,7 @@ function App() {
   const [currentSeamLat, setCurrentSeamLat] = useState(0);
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
-  const [gyroDegree, setGyroDegree] = useState(-58)
+  const [gyroDegree, setGyroDegree] = useState(0)
   
 
     useEffect(() => {
@@ -277,6 +286,9 @@ function App() {
           }
           else if (e.data?.type === "rod_toggle") {
             setShowRod(Boolean(e.data.value));
+          }
+          else if (e.data?.type === "stamp_toggle") {
+            setShowStamp(Boolean(e.data.value));
           }
           else if (e.data?.type === "stencil_toggle") {
             setShowStencil(Boolean(e.data.value));
@@ -408,7 +420,7 @@ function App() {
         {showField && <Field />}
         {showClock && <Clock />}
 
-        <group ref={baseballGroupRef}>
+        {/* <group ref={baseballGroupRef}> */}
           <Suspense fallback={<BaseballLoading />}>
             <BaseballModel 
               spinRate={spinRateRPM} 
@@ -420,10 +432,11 @@ function App() {
               resetSpin={resetSpin} 
               showRod={showRod}
               showStencil={showStencil}
+              showStamp={showStamp}
               gyro_degree={gyroDegree}
             />
           </Suspense>
-        </group>
+        {/* </group> */}
 
       </Canvas>
     </div>
