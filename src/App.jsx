@@ -410,7 +410,7 @@ function App() {
       >
 
         {/* Sky */}
-        <mesh scale={[50, 50, 50]}>
+        <mesh scale={[50, 50, 50]}>   
           <sphereGeometry args={[1, 32, 32]} />
           <meshBasicMaterial color="#000000" side={THREE.BackSide} />
         </mesh>
