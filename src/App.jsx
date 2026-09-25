@@ -37,10 +37,16 @@ function Rod() {
   );
 }  
 
+// In dev, assets are served from public/models/... . The Shiny app's www/ folder has the
+// same .glb files sitting flat at the root instead, so a production build needs "/name.glb"
+// rather than "/models/name.glb". import.meta.env.PROD is set automatically by Vite (true
+// for `vite build`, false for the dev server) - no config or manual edit needed either way.
+const MODEL_BASE = import.meta.env.PROD ? "" : "/models";
+
 function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showStencil, showStamp, gyro_degree }) {
   const gltf = useLoader(
     GLTFLoader,
-    "/models/baseball-v2.glb",
+    `${MODEL_BASE}/baseball-v2.glb`,
     (loader) => {
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
@@ -48,7 +54,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
 
   const stencil = useLoader(
     GLTFLoader,
-    "/models/seam_stamper.glb",
+    `${MODEL_BASE}/seam_stamper.glb`,
     (loader) => {
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
@@ -56,7 +62,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
 
   const small_stamp = useLoader(
     GLTFLoader,
-    "/models/angled_stamp_ring.glb",
+    `${MODEL_BASE}/angled_stamp_ring.glb`,
     (loader) => {
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
@@ -64,7 +70,7 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
 
   const large_stamp = useLoader(
     GLTFLoader,
-    "/models/larger_stamp_ring.glb",
+    `${MODEL_BASE}/larger_stamp_ring.glb`,
     (loader) => {
       loader.setMeshoptDecoder(MeshoptDecoder);
     }
@@ -75,6 +81,22 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
   const rodGroupRef = React.useRef();
   const stencilGroupRef = React.useRef();
   const { invalidate } = useThree();
+
+  // useLoader caches the loaded scene by URL, so with two BaseballModel instances (split
+  // view) both would otherwise get handed the exact same Object3D - and since an Object3D
+  // can only have one parent, inserting it as a child in the second instance silently
+  // detaches it from the first, making one ball disappear. Clone per-instance so each
+  // BaseballModel gets its own Object3D tree (meshes still share geometry/material refs,
+  // which is fine - that's how three.js clone() works and is why the color-tint effect
+  // below still applies to every clone).
+  const modelScene = useMemo(() => {
+    const scene = gltf.scene.clone();
+    scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
+    return scene;
+  }, [gltf]);
+  const stencilScene = useMemo(() => stencil.scene.clone(), [stencil]);
+  const smallStampScene = useMemo(() => small_stamp.scene.clone(), [small_stamp]);
+  const largeStampScene = useMemo(() => large_stamp.scene.clone(), [large_stamp]);
 
   // just sets the colors there's definitely a better way to do this
  useEffect(() => {
@@ -103,12 +125,6 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
       });
     }
   }, [stencil, small_stamp]);
-
-  useEffect(() => {
-    if (gltf.scene) {
-      gltf.scene.rotation.set(Math.PI / 2, (3 * Math.PI) / 2, 0);
-    }
-  }, [gltf]);
 
   useEffect(() => {
     if (spinGroupRef.current) {
@@ -209,16 +225,15 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
           {showRod && <Rod />}
 
           <group ref={stencilGroupRef}>
-            {showStencil && <primitive object={stencil.scene} scale={.002} />}
+            {showStencil && <primitive object={stencilScene} scale={.002} />}
           </group>
 
-          {/* <primitive object={small_stamp.scene} scale={.0019} rotation={[0, -Math.PI / 2, 0]}/> */}
-          {showStamp && gyro_degree < -45  && <primitive object={small_stamp.scene} scale={.0019} rotation={[0, -Math.PI / 2, 0]} />}
-          {showStamp && gyro_degree > 45  && <primitive object={small_stamp.scene} scale={.0019} rotation={[0, Math.PI / 2, 0]} />}
-          {showStamp && (gyro_degree < 45 && gyro_degree > -45 ) && <primitive object={large_stamp.scene} scale={.00202} rotation={[0, -Math.PI / 2, 0]} />}
+          {showStamp && gyro_degree < -45  && <primitive object={smallStampScene} scale={.0019} rotation={[0, -Math.PI / 2, 0]} />}
+          {showStamp && gyro_degree > 45  && <primitive object={smallStampScene} scale={.0019} rotation={[0, Math.PI / 2, 0]} />}
+          {showStamp && (gyro_degree < 45 && gyro_degree > -45 ) && <primitive object={largeStampScene} scale={.00202} rotation={[0, -Math.PI / 2, 0]} />}
         <group ref={spinGroupRef}>
           <group ref={modelGroupRef}>
-            <primitive object={gltf.scene} scale={2.2} />
+            <primitive object={modelScene} scale={2.2} />
 
           </group>
         </group>
@@ -227,6 +242,52 @@ function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSea
   );
 }
 
+
+function Scene({ showField, showClock, playing, spinRate, currentSpinAxis, seamLat, seamLon, resetSpin, showRod, showStencil, showStamp, gyroDegree, loading, loadingLabel }) {
+  return (
+    <Canvas
+      camera={{ position: [0, 0, 0.47], fov: 50 }}
+      style={{ width: '100%', height: '100%' }}
+      onCreated={({ gl, camera }) => {
+        const parent = gl.domElement.parentElement;
+        gl.setSize(parent.clientWidth, parent.clientHeight);
+        camera.aspect = parent.clientWidth / parent.clientHeight;
+        camera.updateProjectionMatrix();
+      }}
+    >
+      {/* Sky */}
+      <mesh scale={[50, 50, 50]}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshBasicMaterial color="#000000" side={THREE.BackSide} />
+      </mesh>
+      <ambientLight intensity={1} />
+      <directionalLight position={[0, 0, 0.3]} intensity={1} />
+
+      {showField && <Field />}
+      {showClock && <Clock />}
+
+      {loading ? (
+        <BaseballLoading label={loadingLabel} />
+      ) : (
+        <Suspense fallback={<BaseballLoading label={loadingLabel} />}>
+          <BaseballModel
+            spinRate={spinRate}
+            playing={playing}
+            spinAxis={currentSpinAxis}
+            currentSeamLat={seamLat}
+            currentSeamLon={seamLon}
+            useSeamOrientation={true}
+            resetSpin={resetSpin}
+            showRod={showRod}
+            showStencil={showStencil}
+            showStamp={showStamp}
+            gyro_degree={gyroDegree}
+          />
+        </Suspense>
+      )}
+    </Canvas>
+  );
+}
 
 function App() {
   const [showClock, setShowClock] = useState(true);
@@ -245,7 +306,15 @@ function App() {
   const [currentSeamLon, setCurrentSeamLon] = useState(0);
   const [resetSpin, setResetSpin] = useState(false); // New state for reset trigger
   const [gyroDegree, setGyroDegree] = useState(0)
-  
+
+  // Split-screen "before vs after Run Opt Flight Sim" view.
+  // Tilt/gyro/velo/spin-rate are shared with the "after" (currentSeamLat/Lon) ball since the
+  // optimizer only searches over seam orientation - only the seam lat/lon differ between the two.
+  const [splitView, setSplitView] = useState(false);
+  const [beforeSeamLat, setBeforeSeamLat] = useState(0);
+  const [beforeSeamLon, setBeforeSeamLon] = useState(0);
+  const [optSeamLoading, setOptSeamLoading] = useState(false);
+
 
     useEffect(() => {
         const handler = (e) => {
@@ -295,6 +364,19 @@ function App() {
           }
           else if (e.data?.type === "reset_ball_drag") {
             setResetRodDrag(Boolean(e.data.value));
+          }
+          else if (e.data?.type === "split_view") {
+            const active = Boolean(e.data.active);
+            setSplitView(active);
+            if (active) {
+              if ('beforeLat' in e.data) setBeforeSeamLat(e.data.beforeLat);
+              if ('beforeLon' in e.data) setBeforeSeamLon(e.data.beforeLon);
+            } else {
+              setOptSeamLoading(false);
+            }
+          }
+          else if (e.data?.type === "opt_loading_toggle") {
+            setOptSeamLoading(Boolean(e.data.loading));
           }
         };
         window.addEventListener("message", handler);
@@ -398,47 +480,59 @@ function App() {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <Canvas 
-        camera={{ position: [0, 0, 0.47], fov: 50 }}
-        style={{ width: '100%', height: '100%' }}
-        onCreated={({ gl, camera }) => {
-          const parent = gl.domElement.parentElement;
-          gl.setSize(parent.clientWidth, parent.clientHeight);
-          camera.aspect = parent.clientWidth / parent.clientHeight;
-          camera.updateProjectionMatrix();
-        }}
-      >
-
-        {/* Sky */}
-        <mesh scale={[50, 50, 50]}>   
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial color="#000000" side={THREE.BackSide} />
-        </mesh>
-        <ambientLight intensity={1} />
-        <directionalLight position={[0, 0, 0.3]} intensity={1} />
-
-        {showField && <Field />}
-        {showClock && <Clock />}
-
-        {/* <group ref={baseballGroupRef}> */}
-          <Suspense fallback={<BaseballLoading />}>
-            <BaseballModel 
-              spinRate={spinRateRPM} 
-              playing={playing} 
-              spinAxis={currentSpinAxis} 
-              currentSeamLat={currentSeamLat} 
-              currentSeamLon={currentSeamLon} 
-              useSeamOrientation={true} 
-              resetSpin={resetSpin} 
+      {splitView ? (
+        <div style={{ display: "flex", width: "100%", height: "100%" }}>
+          <div style={{ width: "50%", height: "100%", position: "relative", borderRight: "1px solid #333" }}>
+            <Scene
+              showField={showField}
+              showClock={showClock}
+              playing={playing}
+              spinRate={spinRateRPM}
+              currentSpinAxis={currentSpinAxis}
+              seamLat={beforeSeamLat}
+              seamLon={beforeSeamLon}
+              resetSpin={resetSpin}
               showRod={showRod}
               showStencil={showStencil}
               showStamp={showStamp}
-              gyro_degree={gyroDegree}
+              gyroDegree={gyroDegree}
             />
-          </Suspense>
-        {/* </group> */}
-
-      </Canvas>
+          </div>
+          <div style={{ width: "50%", height: "100%", position: "relative" }}>
+            <Scene
+              showField={showField}
+              showClock={showClock}
+              playing={playing}
+              spinRate={spinRateRPM}
+              currentSpinAxis={currentSpinAxis}
+              seamLat={currentSeamLat}
+              seamLon={currentSeamLon}
+              resetSpin={resetSpin}
+              showRod={showRod}
+              showStencil={showStencil}
+              showStamp={showStamp}
+              gyroDegree={gyroDegree}
+              loading={optSeamLoading}
+              loadingLabel="Opt SeamO Loading"
+            />
+          </div>
+        </div>
+      ) : (
+        <Scene
+          showField={showField}
+          showClock={showClock}
+          playing={playing}
+          spinRate={spinRateRPM}
+          currentSpinAxis={currentSpinAxis}
+          seamLat={currentSeamLat}
+          seamLon={currentSeamLon}
+          resetSpin={resetSpin}
+          showRod={showRod}
+          showStencil={showStencil}
+          showStamp={showStamp}
+          gyroDegree={gyroDegree}
+        />
+      )}
     </div>
   );
 }

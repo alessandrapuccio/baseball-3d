@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from '@react-three/drei';
 
-function BaseballLoading() {
+function BaseballLoading({ label = "Ball loading" }) {
   const dot1Ref = useRef();
   const dot2Ref = useRef();
   const dot3Ref = useRef();
@@ -32,7 +32,7 @@ function BaseballLoading() {
         anchorX="center"
         anchorY="center"
       >
-        Ball loading
+        {label}
       </Text>
       
       {/* Loading dots */}

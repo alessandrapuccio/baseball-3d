@@ -43,6 +43,9 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: 'C:/Users/alessandra.puccio/EDGAR/playerdev/Scripts/pitching-portal/www',
+    emptyOutDir: false, // that folder has the Shiny app's other www assets - don't wipe it
+    copyPublicDir: false, // don't dump public/ (dev json fixtures, index.html, models_old) into www
     lib: {
       entry: 'src/index.jsx',
       name: 'BallSpinApp',
