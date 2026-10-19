@@ -38,10 +38,13 @@ function Rod() {
 }  
 
 // In dev, assets are served from public/models/... . The Shiny app's www/ folder has the
-// same .glb files sitting flat at the root instead, so a production build needs "/name.glb"
-// rather than "/models/name.glb". import.meta.env.PROD is set automatically by Vite (true
-// for `vite build`, false for the dev server) - no config or manual edit needed either way.
-const MODEL_BASE = import.meta.env.PROD ? "" : "/models";
+// same .glb files sitting flat at the root instead, so a production build needs
+// "./name.glb" rather than "/models/name.glb". Both are relative (no leading slash) so they
+// resolve correctly regardless of what subpath the app is deployed under (e.g. shinyapps.io
+// serves apps at https://host/app-name/, not domain root - a leading slash would 404 there).
+// import.meta.env.PROD is set automatically by Vite (true for `vite build`, false for the
+// dev server) - no config or manual edit needed either way.
+const MODEL_BASE = import.meta.env.PROD ? "." : "./models";
 
 function BaseballModel({ spinRate, playing, spinAxis, currentSeamLat, currentSeamLon, useSeamOrientation, resetSpin, showRod, showStencil, showStamp, gyro_degree }) {
   const gltf = useLoader(
@@ -313,7 +316,8 @@ function App() {
   const [splitView, setSplitView] = useState(false);
   const [beforeSeamLat, setBeforeSeamLat] = useState(0);
   const [beforeSeamLon, setBeforeSeamLon] = useState(0);
-  const [optSeamLoading, setOptSeamLoading] = useState(false);
+  const [simLoading, setSimLoading] = useState(false);
+  const [simLoadingLabel, setSimLoadingLabel] = useState("Loading...");
 
 
     useEffect(() => {
@@ -371,12 +375,11 @@ function App() {
             if (active) {
               if ('beforeLat' in e.data) setBeforeSeamLat(e.data.beforeLat);
               if ('beforeLon' in e.data) setBeforeSeamLon(e.data.beforeLon);
-            } else {
-              setOptSeamLoading(false);
             }
           }
-          else if (e.data?.type === "opt_loading_toggle") {
-            setOptSeamLoading(Boolean(e.data.loading));
+          else if (e.data?.type === "sim_loading_toggle") {
+            setSimLoading(Boolean(e.data.loading));
+            if (e.data.label) setSimLoadingLabel(e.data.label);
           }
         };
         window.addEventListener("message", handler);
@@ -512,8 +515,8 @@ function App() {
               showStencil={showStencil}
               showStamp={showStamp}
               gyroDegree={gyroDegree}
-              loading={optSeamLoading}
-              loadingLabel="Opt SeamO Loading"
+              loading={simLoading}
+              loadingLabel={simLoadingLabel}
             />
           </div>
         </div>
@@ -531,6 +534,8 @@ function App() {
           showStencil={showStencil}
           showStamp={showStamp}
           gyroDegree={gyroDegree}
+          loading={simLoading}
+          loadingLabel={simLoadingLabel}
         />
       )}
     </div>
